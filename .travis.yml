@@ -9,4 +9,4 @@ env:
 before_install:
   - sudo apt-get install libmysqlclient-dev
 before_script:
-  - mysql -u root <data/schema__myapp_test.sql
+  - mysql -u root <data/backup__myapp_test.sql
