@@ -1,0 +1,14 @@
+libmojar-mysql-perl (2.032) squeeze; urgency=low
+
+  * Modified dsn() to support omitting schema name.
+
+ -- Nic Sandfield <niczero@cpan.org>  Mon, 31 Dec 2012 22:49:02 +0000
+
+libmojar-mysql-perl (2.031) squeeze; urgency=low
+
+  * Revised some defaults.
+  * Improved documentation.
+  * Added travis support.
+
+ -- Nic Sandfield <niczero@cpan.org>  Mon, 31 Dec 2012 21:55:01 +0000
+
