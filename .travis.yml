@@ -7,6 +7,6 @@ perl:
 env:
   - HARNESS_OPTIONS=j9
 before_install:
-  - sudo apt-get install devmysqlclient-dev
+  - sudo apt-get install libmysqlclient-dev
 before_script:
   - mysql -u root <data/schema__myapp_test.sql
