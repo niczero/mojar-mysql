@@ -1,3 +1,7 @@
 .bzr
 .bzrignore
+.session
+dep
 mod
+nytprof.out
+Makefile

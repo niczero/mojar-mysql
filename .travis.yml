@@ -1,0 +1,12 @@
+language: perl
+perl:
+  - "5.16"
+  - "5.14"
+  - "5.12"
+  - "5.10"
+env:
+  - HARNESS_OPTIONS=j9
+before_install:
+  - sudo apt-get install libmysqlclient-dev
+before_script:
+  - mysql -u root <data/backup__myapp_test.sql
