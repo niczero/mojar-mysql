@@ -1,3 +1,10 @@
+libmojar-mysql-perl (2.033) squeeze; urgency=low
+
+  * Tweaked meta files and ::Mysql::Connector docn.
+  * Fixed POD bug in ::Mysql::Connector.
+
+ -- Nic Sandfield <niczero@cpan.org>  Tue, 01 Jan 2013 16:00:03 +0000
+
 libmojar-mysql-perl (2.032) squeeze; urgency=low
 
   * Modified dsn() to support omitting schema name.

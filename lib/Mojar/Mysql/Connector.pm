@@ -6,7 +6,7 @@ use Mojo::Base 'DBI';
 # Register subclass structure
 __PACKAGE__->init_rootclass;
 
-our $VERSION = 2.032;
+our $VERSION = 2.033;
 
 use File::Spec::Functions 'catfile';
 
@@ -594,7 +594,7 @@ So in B<summary> the parameters most likely to need overriding are
 As you would expect, there is a hierarchy for setting parameters that take
 effect for new connections.
 
-=over
+=over 4
 
 =item 0.
 
@@ -648,6 +648,8 @@ process (perl interpreter instance).
 Connectors are objects that you pack with your preferred connection parameters
 and then have ready to supply you with database connections.  Their use is
 entirely optional, but their advantages include the following.
+
+=over 4
 
 =item *
 
@@ -950,6 +952,16 @@ Returns a hashref of view names, similar to
 
 but excluding real tables.
 
+=head1 SUPPORT
+
+=head2 Homepage
+
+L<http://niczero.github.com/mojar-mysql>
+
+=head2 Wiki
+
+L<http://github.com/niczero/mojar/wiki>
+
 =head1 RATIONALE
 
 This class was first used in production in 2002.  Before then, connecting to
@@ -970,5 +982,12 @@ connections.
 =head1 SEE ALSO
 
 L<Coro::Mysql>, L<AnyEvent::DBI>, L<DBIx::Custom>, L<DBIx::Connector>.
+
+=head1 COPYRIGHT AND LICENCE
+
+Copyright (C) 2002--2013, Nic Sandfield.
+
+This program is free software, you can redistribute it and/or modify it under
+the terms of the Artistic License version 2.0.
 
 =cut
