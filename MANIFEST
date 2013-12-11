@@ -1,0 +1,17 @@
+LICENSE
+Makefile.PL
+README.md
+data/backup__test_myapp.sql
+data/testmyapp_localhost.cnf
+lib/Mojar/Mysql.pm
+lib/Mojar/Mysql/Connector.pm
+lib/Mojar/Mysql/Feed.pm
+lib/Mojar/Mysql/Mgmt.pm
+lib/Mojar/Mysql/Profiler.pm
+lib/Mojar/Mysql/Table.pm
+test/00-load.t
+test/30-mysql-connector.t
+test/31-mysql-helper.t
+test/40-mysql-table.t
+test/manifest.t
+test/pod.t

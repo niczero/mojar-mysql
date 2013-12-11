@@ -1,0 +1,17 @@
+2.061 2013-12-10
+  * Added ->binary_search (Util)
+  * Removed use of class attributes (Connector)
+  * Repaired class ->Defaults (Connector)
+  * Removed per-object ->Defaults (Connector)
+
+2.051 2013-07-17
+  * Added ->engine_status (Connector)
+  * Fixed Makefile.PL
+  * Fixed dsn() to allow omitting schema name (Connector)
+  * Added ::Meta for extracting table info
+
+2.050 2013-07-14
+  * Updated ::Connector and migrated ::Mgmt
+  * Major overhaul and renamed to Mojar::Mysql::Connector
+  * Added docn
+

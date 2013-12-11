@@ -3,5 +3,7 @@
 .session
 dep
 mod
+Makefile*
+!Makefile.PL
+*META.*
 nytprof.out
-Makefile

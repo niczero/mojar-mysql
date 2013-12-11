@@ -13,9 +13,10 @@ WriteMakefile(
   META_MERGE   => {
     requires  => {
       perl => 5.010001,
-      Mojolicious => 3.33,
+      Mojolicious => 4.13,
       DBI => 1.53,
-      'DBD::mysql' => 3.0008
+      'DBD::mysql' => 3.0008,
+      Mojar => 1
     },
     resources => {
       homepage    => 'http://niczero.github.com/mojar-mysql',
@@ -23,14 +24,15 @@ WriteMakefile(
       repository  => 'http://github.com/niczero/mojar-mysql',
       bugtracker  => 'http://github.com/niczero/mojar-mysql/issues'
     },
-    no_index => {directory => ['test']}
+    no_index => {directory => ['data', 'test']}
   },
   BUILD_REQUIRES => { 'Test::More' => '0' },
   CONFIGURE_REQUIRES => { 'ExtUtils::MakeMaker' => '6.30' },
   PREREQ_PM => {
-    Mojolicious => 3.33,
+    Mojolicious => 4.13,
     DBI => 1.53,
-    'DBD::mysql' => 3.0008
+    'DBD::mysql' => 3.0008,
+    Mojar => 1
   },
   EXE_FILES => [],
   test => { TESTS => 'test/*.t' }

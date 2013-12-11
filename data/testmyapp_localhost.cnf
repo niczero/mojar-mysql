@@ -1,0 +1,9 @@
+[client]
+host = localhost
+user = testmyapp
+password = x8UUgrr_t
+
+[mysql]
+prompt = 'test_myapp: '
+pager = 'less -nSFX'
+database = test_myapp

@@ -3,9 +3,9 @@ use strict;
 use version;
 use 5.010001;
 
-our $VERSION = 2.034;
+our $VERSION = 2.061;
 
-1
+1;
 __END__
 
 =head1 NAME

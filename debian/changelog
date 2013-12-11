@@ -1,3 +1,28 @@
+libmojar-mysql-perl (2.061) wheezy; urgency=low
+
+  * Added ->binary_search (Util)
+  * Removed use of class attributes (Connector)
+  * Repaired class ->Defaults (Connector)
+  * Removed per-object ->Defaults (Connector)
+
+ -- Nic Sandfield <niczero@cpan.org>  Tue, 10 Dec 2013 21:47:07 +0000
+
+libmojar-mysql-perl (2.051) wheezy; urgency=low
+
+  * Added ::Connector->engine_status
+  * Depends on Mojolicious 4.13 rather than 3.46
+
+ -- Nic Sandfield <niczero@cpan.org>  Wed, 17 Jul 2013 23:04:06 +0100
+
+libmojar-mysql-perl (2.040) squeeze; urgency=low
+
+  * Removed :sql_types from ::Mysql::Connector use.
+  * Improved docn (showed usage of helpers)
+  * Improved docn (tried to make more readable)
+  * Depends on Mojolicious 3.46 rather than 3.33
+
+ -- Nic Sandfield <niczero@cpan.org>  Thu, 03 Jan 2013 19:12:05 +0000
+
 libmojar-mysql-perl (2.034) squeeze; urgency=low
 
   * Tweaked travis env.

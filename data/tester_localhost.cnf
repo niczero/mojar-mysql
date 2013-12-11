@@ -1,9 +1,0 @@
-[client]
-host = localhost
-user = root
-password =
-
-[mysql]
-prompt = 'myapp_test: '
-pager = 'less -nSFX'
-database = myapp_test

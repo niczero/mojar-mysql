@@ -1,6 +1,8 @@
 ^\.
-^Makefile$
-^MYMETA\.
+\.tar\.gz$
 ^blib
 ^dep
+^Makefile$
+^MANIFEST
+^MYMETA\.
 ^pm_to_blib
