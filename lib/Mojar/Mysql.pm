@@ -1,11 +1,9 @@
 package Mojar::Mysql;
-use strict;
-use version;
-use 5.010001;
+use Mojo::Base -strict;
 
-our $VERSION = 2.034;
+our $VERSION = 2.041;
 
-1
+1;
 __END__
 
 =head1 NAME

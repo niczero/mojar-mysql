@@ -1,28 +1,37 @@
+libmojar-mysql-perl (2.041) squeeze; urgency=low
+
+  * Removed :sql_types (Connector).
+  * Improved documentation (showed usage of helpers).
+  * Improved documentation (tried to make more readable).
+  * Fixed Makefile.PL.
+
+ -- Nic Sandfield <niczero@cpan.org>  Tue, 28 Jan 2014 22:48 +0000
+
 libmojar-mysql-perl (2.034) squeeze; urgency=low
 
   * Tweaked travis env.
-  * Reinstated missing licence file (was mentioned in Makefile.PL).
+  * Reinstated missing licence file.
 
- -- Nic Sandfield <niczero@cpan.org>  Tue, 01 Jan 2013 22:34:04 +0000
+ -- Nic Sandfield <niczero@cpan.org>  Tue, 01 Jan 2013 22:34 +0000
 
 libmojar-mysql-perl (2.033) squeeze; urgency=low
 
-  * Tweaked meta files and ::Mysql::Connector docn.
-  * Fixed POD bug in ::Mysql::Connector.
+  * Tweaked meta files.
+  * Fixed POD bug (Mysql::Connector).
+  * Improved documentation (Mysql::Connector).
 
- -- Nic Sandfield <niczero@cpan.org>  Tue, 01 Jan 2013 16:00:03 +0000
+ -- Nic Sandfield <niczero@cpan.org>  Tue, 01 Jan 2013 16:00 +0000
 
 libmojar-mysql-perl (2.032) squeeze; urgency=low
 
-  * Modified dsn() to support omitting schema name.
+  * Modified dsn to support omitting schema name (Mysql::Connector).
 
- -- Nic Sandfield <niczero@cpan.org>  Mon, 31 Dec 2012 22:49:02 +0000
+ -- Nic Sandfield <niczero@cpan.org>  Mon, 31 Dec 2012 22:49 +0000
 
 libmojar-mysql-perl (2.031) squeeze; urgency=low
 
-  * Revised some defaults.
-  * Improved documentation.
+  * Revised some defaults (Mysql::Connector).
+  * Improved documentation (Mysql::Connector).
   * Added travis support.
 
- -- Nic Sandfield <niczero@cpan.org>  Mon, 31 Dec 2012 21:55:01 +0000
-
+ -- Nic Sandfield <niczero@cpan.org>  Mon, 31 Dec 2012 21:55 +0000

@@ -1,20 +1,20 @@
-# ============
 package Mojar::Mysql::Connector;
-# ============
-use DBI 1.4.3 qw(:sql_types);
+use DBI 1.4.3;
 use Mojo::Base 'DBI';
+
 # Register subclass structure
 __PACKAGE__->init_rootclass;
 
-our $VERSION = 2.033;
+our $VERSION = 2.041;
 
 use File::Spec::Functions 'catfile';
+use Mojar::ClassShare 'have';
 
 sub import {
   my ($pkg, %param) = @_;
   my $caller = caller;
   # Helpers
-  $param{-connector} ||= 1 if exists $param{-dbh} && $param{-dbh};
+  $param{-connector} //= 1 if exists $param{-dbh} and $param{-dbh};
   if (exists $param{-connector} and my $cname = delete $param{-connector}) {
     $cname = 'connector' if "$cname" eq '1';
     no strict 'refs';
@@ -35,7 +35,7 @@ sub import {
           return $self;
         }
         return $self->{$hname}
-          if defined $self->{$hname} && $self->{$hname}->ping;
+          if defined $self->{$hname} and $self->{$hname}->ping;
         return $self->{$hname} = $self->$cname->connect;
       };
     }
@@ -45,21 +45,18 @@ sub import {
     # Already have defaults => die
     die "Redefining class defaults for $pkg";
   }
-  @{ $pkg->Defaults }{keys %param} = values %param if %param;
+  @{$pkg->Defaults}{keys %param} = values %param if %param;
   # Debugging
   $pkg->trace($param{TraceLevel})
-    if exists $param{TraceLevel} && defined $param{TraceLevel};
+    if exists $param{TraceLevel} and defined $param{TraceLevel};
 }
 
-# ------------
-# Class attributes
-# ------------
+# Class attribute
 
-has Defaults => sub { {} };
+# Use a hash for holding use-time class defaults
+have Defaults => sub { {} };
 
-# ------------
 # Attributes
-# ------------
 
 my @DbdFields = qw( RaiseError PrintError PrintWarn AutoCommit TraceLevel
     mysql_enable_utf8 mysql_auto_reconnect );
@@ -88,15 +85,11 @@ has 'schema';  # eg 'test';
 has 'user';
 has 'password';
 
-# ------------
-# Private functions
-# ------------
+# Private function
 
 sub croak { require Carp; goto &Carp::croak; }
 
-# ------------
 # Public methods
-# ------------
 
 sub new {
   my ($proto, %param) = @_;
@@ -110,7 +103,7 @@ sub connect {
   my ($proto, @args) = @_;
   my $class = ref $proto || $proto;
   @args = $proto->dsn(@args)
-    unless @args && $args[0] =~ /^DBI:/i;
+    unless @args and $args[0] =~ /^DBI:/i;
   my $dbh;
   eval {
     $dbh = $class->SUPER::connect(@args)
@@ -132,18 +125,16 @@ sub dsn {
   # Absorb dynamic defaults
   %param = ( %defaults, %param ) if %defaults;
   # Fallback to static defaults
-  for (@ConFields, @DbiFields, @DbdFields) {
-    $param{$_} = $proto->$_ unless exists $param{$_};
-  }
+  exists $param{$_} or $param{$_} = $proto->$_
+    for @ConFields, @DbiFields, @DbdFields;
 
   my $cnf_txt = '';
   if (my $cnf = $param{cnf}) {
     # MySQL .cnf file
     $cnf .= '.cnf' unless $cnf =~ /\.cnf$/;
-    unless (-r $cnf) {
-      $cnf = catfile $param{cnfdir}, $cnf if defined $param{cnfdir};
-    }
-    croak sprintf 'Failed to read .cnf file (%s)', $cnf unless -r $cnf;
+    $cnf = catfile $param{cnfdir}, $cnf if ! -r $cnf and defined $param{cnfdir};
+    croak "Failed to find .cnf file ($cnf)" unless -f $cnf;
+    croak "Failed to read .cnf file ($cnf)" unless -r $cnf;
 
     $cnf_txt = ';mysql_read_default_file='. $cnf;
     $cnf_txt .= ';mysql_read_default_group='. $param{cnfgroup}
@@ -151,17 +142,15 @@ sub dsn {
   }
 
   # DBD params
-  # Only set private_config if it would have meaningful values
+  # Only set private_config if it would have useful values
   my %custom;
-  for (qw(label cnf cnfgroup)) {
-    $custom{$_} = $param{$_} if defined $param{$_};
-  }
+  defined $param{$_} and $custom{$_} = $param{$_} for qw(label cnf cnfgroup);
   my $dbd_param = %custom ? { private_config => {%custom} } : {};
   @$dbd_param{@DbdFields} = @param{@DbdFields};
 
   return (
     'DBI:'. $param{driver} .q{:}
-          . ($param{schema} // '')
+          . ($param{schema} // $param{db} // '')
           . (defined $param{host} ? q{;host=}. $param{host} : '')
           . (defined $param{port} ? q{;port=}. $param{port} : '')
           . $cnf_txt,
@@ -173,7 +162,7 @@ sub dsn {
 
 sub dsn_as_string {
   my ($proto, @args) = @_;
-  # Password
+  # Occlude password
   if ($args[2] and $_ = length $args[2] and $_ > 1) {
     --$_;
     my $blanks = '*' x $_;
@@ -189,25 +178,20 @@ sub dsn_as_string {
 
 # ============
 package Mojar::Mysql::Connector::db;
-# ============
 @Mojar::Mysql::Connector::db::ISA = 'DBI::db';
 
 use Scalar::Util 'looks_like_number';
 
-# ------------
-# Private functions
-# ------------
+# Private function
 
 sub croak { require Carp; goto &Carp::croak; }
 
-# ------------
 # Public methods
-# ------------
 
 sub mysqld_version { shift->get_info(18) }
 # 18 : SQL_DBMS_VER
 
-sub thread_id { shift->{mysql_thread_id} || 0 }
+sub thread_id { shift->{mysql_thread_id} // 0 }
 
 sub current_schema {
   my ($self) = @_;
@@ -215,7 +199,7 @@ sub current_schema {
   eval {
     ($schema_name) = $self->selectrow_array(
 q{SELECT DATABASE()});
-    1
+    1;
   }
   or do {
     my $e = $@ // '';
@@ -226,12 +210,12 @@ q{SELECT DATABASE()});
 
 sub session_var {
   my ($self, $var, $value) = (shift, shift, undef);
-  croak 'Missing var name' unless defined $var && length $var;
+  croak 'Missing var name' unless defined $var and length $var;
   unless (@_) {
     eval {
       ($value) = $self->selectrow_array(sprintf
 q{SELECT @@session.%s}, $var);
-      1
+      1;
     }
     or do {
       my $e = $@ // '';
@@ -243,13 +227,13 @@ q{SELECT @@session.%s}, $var);
   $value = shift;
   my ($old, $new);
   eval {
-    ($old) = $self->selectrow_array( sprintf
+    ($old) = $self->selectrow_array(sprintf
 q{SELECT @@session.%s}, $var);
     $value = sprintf "'%s'", $value unless looks_like_number $value;
     $self->do(qq{SET SESSION $var = $value});
     ($new) = $self->selectrow_array(sprintf
 q{SELECT @@session.%s}, $var);
-    1
+    1;
   }
   or do {
     my $e = $@ // '';
@@ -277,20 +261,19 @@ sub enable_fk_checks {
 sub schemata {
   my ($self, @args) = @_;
   # args[0] : schema pattern
-  my @schemata;
+  my $schemata;
   eval {
     my $sql = q{SHOW DATABASES};
-    $sql .= sprintf " LIKE '%s'", $args[0] if defined $args[0];
-    @schemata = $self->selectcol_arrayref($sql, $args[1])
-      or die;
-    @schemata = grep !/^lost\+found/, @schemata;
-    1
+    $sql .= sprintf q{ LIKE '%s'}, $args[0] if defined $args[0];
+    $schemata = $self->selectcol_arrayref($sql, $args[1]) or die;
+    @$schemata = grep !/^lost\+found/, @$schemata;
+    1;
   }
   or do {
     my $e = $@ // '';
     croak "Failed to list schemata\n$e";
   };
-  return \@schemata;
+  return $schemata;
 }
 
 sub tables_and_views {
@@ -300,17 +283,17 @@ sub tables_and_views {
   # args[2] : type
   # args[3] : attr
   $args[2] //= 'TABLE,VIEW';
-  my @tables;
+  my $tables;
   eval {
     my $sth = $self->table_info('', @args);
-    @tables = map $_->[2], @{$sth->fetchall_arrayref};
-    1
+    @$tables = map $_->[2], @{$sth->fetchall_arrayref};
+    1;
   }
   or do {
     my $e = $@ // '';
     croak "Failed to list tables\n$e";
   };
-  return \@tables;
+  return $tables;
 }
 
 sub real_tables {
@@ -329,40 +312,43 @@ sub views {
   return $self->tables_and_views(@args[0,1], 'VIEW', $args[2]);
 }
 
-#TODO: clean up this old code
+#TODO: clean up this ancient code
 #sub insert_hash {
 #  my ($self, $schema, $table, $field_map) = @_;
 #  my @fields = keys %$field_map;
 #  my @values = values %$field_map;
-#  my $sql = sprintf
-#q{INSERT INTO %s.`%s` (%s) VALUES (%s)},
+#  $self->do(sprintf(
+#q{INSERT INTO %s.%s (%s) VALUES (%s)},
 #      $schema,
 #      $table,
 #      join(q{,}, @fields),
-#      join(q{,}, '?' x @fields);
-#  my $sth = $self->prepare($sql);
-#  $sth->execute(@values)
+#      join(q{,}, '?' x @fields)),
+#    undef,
+#    @values
+#  );
 #}
 
-#TODO: clean up this old code
+#TODO: clean up this ancient code
 #sub search_hash {
 #  my ($self, $schema, $table, $field_map, @columns) = @_;
 #  my @fields = keys %$field_map;
 #  my @values = values %$field_map;
-#  my $clause = '';
-#  $clause = q{WHERE }. join q{ AND }, map '$_ = ?', @fields if @fields;
 #  my $wanted = scalar(@columns) ? join q{, }, @columns : q{*};
-#  my $sth = $self->prepare( sprintf
-#q{SELECT %s FROM %s.%s %s}, $wanted, $schema, $table, $clause);
-#  $self->selectall_arrayref($sth, {}, @values)
+#  my $where = '';
+#  $where = q{WHERE }. join q{ AND }, map '$_ = ?', @fields if @fields;
+#  $self->selectall_arrayref(sprintf(
+#q{SELECT %s FROM %s.%s %s},
+#    $wanted, $schema, $table, $where),
+#    undef,
+#    @values
+#  );
 #}
 
 # ============
 package Mojar::Mysql::Connector::st;
-# ============
 @Mojar::Mysql::Connector::st::ISA = 'DBI::st';
 
-1
+1;
 __END__
 
 =head1 NAME
@@ -396,11 +382,7 @@ In an application making multiple types of connection.
     schema => 'Reports'
   );
   ...
-  $read_connector->connect->do(q{...});
-  ...
-  my $read_dbh = $read_connector->connect(
-    auto_reconnect => 1
-  );
+  my $read_dbh = $read_connector->connect(auto_reconnect => 1);
   my $write_dbh = $write_connector->connect;
 
 Employing a helper.
@@ -411,7 +393,7 @@ Employing a helper.
     schema => 'Users',
     -dbh => 1
   );
-  sub do_some_db_doodah {
+  sub do_da_db_doodah {
     my $self = shift;
     my $dbh = $self->dbh;
     ...
@@ -419,13 +401,13 @@ Employing a helper.
 
 From the commandline.
 
-  perl -MMojar::Mysql::Connector="cnf,ro_localhost,schema,Users,-dbh,1"
+  perl -MMojar::Mysql::Connector=cnf,ro_localhost,schema,Users,-dbh,1
     -E'say join qq{\n}, @{main->dbh->real_tables}'
 
 =head1 DESCRIPTION
 
 MySQL-specific extension (subclass) to DBI in order to improve convenience,
-security, and error handling.  Supports easy use of credential/init files, akin
+security, and error handling.  Supports easy use of credential (cnf) files, akin
 to
 
   mysql --defaults-file=$CRED_FILE
@@ -436,366 +418,69 @@ above all it tries to make it quick and easy to Do The Right Thing.
 As the name implies, the class provides connector objects -- containers for
 storing and updating your connection parameters.  When you call C<connect>, the
 connector returns a handle created using its retained parameters plus any
-call-time parameters you may have used in the call.  You don't however have to
-use connectors and for simple usage it can be easier to use C<connect> directly
-from the class.
+call-time parameters passed.  You don't however have to use connectors; for
+simple usage it can be easier to use C<connect> directly from the class.
 
-=head1 USAGE
+You can use a DSN tuple if you want to, but it's more readable and less
+error-prone to specify your parameters either as a hash or by setting individual
+attributes.  Each call to C<connect> will then construct the DSN for you.
 
-One of the main advantages of using this subclass in place of the standard
-L<DBI> is the provision of a set of defaults that can be overridden.  For
-instance, a script can define a C<cnfdir> and C<cnf> early on, then redefine
-C<cnf> for connections to a different server.  Various examples of usage are
-given below (L</"Using defaults">) after the parameters themselves have been
-introduced.
+You can optionally import a helper method, called C<dbh> (or whatever name you
+choose) so that you can focus even less on the connector/connection and more on
+your code.  The helper will cache your database handle and create a new one
+automatically if the old one is destroyed or goes stale.
 
-=head2 Class/object parameters
+The fourth layer of convenience is provided by the added database handle
+methods.  Changing session variables is as easy as chaining methods, listing
+only genuine tables (C<real_tables>) is easy, and there's more.
 
-  RaiseError           => 1,
-  PrintError           => 0,
-  PrintWarn            => 0,
-  AutoCommit           => 1,
-  TraceLevel           => 0,
-  mysql_enable_utf8    => 1,
-  mysql_auto_reconnect => 0,
-  label                => undef,
-  cnfdir               => '.',
-  cnf                  => undef,
-  cnfgroup             => undef,
-  driver               => 'mysql',
-  host                 => undef,
-  port                 => undef,
-  user                 => undef,
-  password             => undef,
-  schema               => undef
+=head1 CLASS METHODS
 
-These are the parameters that can be set as class defaults, connector defaults,
-connection-specific ('one of'), or a combination of those.  The following subset
-are those parameters that govern behaviour of a db connection:
-
-  RaiseError
-  PrintError
-  PrintWarn
-  AutoCommit
-  TraceLevel
-  mysql_enable_utf8
-  mysql_auto_reconnect
-
-L<DBI/"ATTRIBUTES COMMON TO ALL HANDLES"> is the authority on the first five,
-their effects and when/why to use them, while L<DBD::mysql/"DATABASE-HANDLES">
-is the authority on the latter two, their effects and when/why to use them.
-
-B<Note> that unless C<RaiseError> is changed, connections will throw exceptions
-rather than need their return values checked.  This is the most robust style
-since it is never fooled by genuinely C<0> or C<undef> return values, and the
-exception can be handled at whatever call-level you deem appropriate.  (This
-style works best if you use a try-catch mechanism such as C<eval {} or do {}> in
-core perl or C<try/catch> in L<Try::Tiny> or L<Error>.)
-
-If your data uses characters that are non-ascii and non-UTF8 then be sure to
-override C<mysql_enable_utf8>:
-
-  mysql_enable_utf8 => 0
-
-The following subset are those parameters that govern making a db connection
-(DSN) series:
-
-  driver
-  host
-  port
-  user
-  password
-  schema
-
-=over
-
-=item *
-
-It is unlikely you will want C<driver> to be anything other than C<mysql>, the
-default.
-
-=item *
-
-Common values to use for C<host> are C<localhost> or C<127.0.0.1>.
-
-=item *
-
-The C<port> param should be set if connecting to a port other than C<3306>.
-
-=item *
-
-The C<schema> param can be set to avoid needing to C<USE someschema>.
-
-=back
-
-None of C<host>, C<port>, C<user>, C<password> is required if you are using
-credentials files (recommended).  One of the primary motivations for this
-(sub)class is to avoid having credentials mixed in with your code.
-
-The following subset is simply to identify a credentials set that will be
-passed to the L<DBI> (actually L<DBD::mysql>) with the connection string.
-
-  cnfdir
-  cnf
-  cnfgroup
-
-=over
-
-=item *
-
-The C<cnfdir> param is the directory containing credentials files.  For
-convenience (eg during testing) it defaults to C<.> but best practice is to put
-your credentials in a dedicated directory, taking care of access privileges to
-keep them secure.
-
-=item *
-
-The C<cnf> param is the credentials file to use, optionally excluding the
-C<.cnf> suffix.  The connection builder prepends C<cnfdir> + C</> to this to
-generate a fully-qualified filename (as long as C<cnfdir> is a non-empty
-string).  However, if C<cnf> identifies a readable file by itself then C<cnfdir>
-is ignored.
-
-=item *
-
-The C<cnfgroup> param is the configuration group to read in addition to
-C<client>.  eg If you set C<cnfgroup =E<gt> 'myapp'> then connections will use
-both of the C<[client]> and C<[myapp]> groups.  Unless set, only the C<[client]>
-group is used.
-
-=back
-
-B<Note> that currently the credentials file is passed to L<DBI> without being
-parsed first.  (A future version may support parsing parameters from the file.)
-
-Which leaves the following.
-
-  label
-
-=over
-
-=item *
-
-The C<label> param simply holds a string that lets you categorise or tag
-connectors.  The motivation for this is when connection pooling you may want to
-sub-pool the available connections, but it can also be helpful for debugging.
-
-=back
-
-So in B<summary> the parameters most likely to need overriding are
-
-  AutoCommit
-  cnfdir
-  cnf
-  schema
-
-=head2 Using defaults
-
-As you would expect, there is a hierarchy for setting parameters that take
-effect for new connections.
-
-=over 4
-
-=item 0.
-
-Class definition file (F<.pm>)
-
-=item 1.
-
-'use' params
-
-=item 2.
-
-connector params
-
-=item 3.
-
-dbh (connection-specific) params
-
-=back
-
-Each level overlays its definitions over those of the level above so that the
-value in effect for a connection is the value in the latest level at the time
-the connection is created.  This flexibility might be a bit confusing at first,
-but examples below should show that individual usage is very simple.  It is
-expected that some users will use only class defaults, some will use only object
-defaults, some will use a combination, and some will use neither.
-
-=head3 Class definition
-
-The values in the class definition file are shown above (L</"Class/object
-parameters">) and should stay static through subsequent released versions.
-
-=head3 Use-time parameters
-
-The calling code can override/set defaults upon C<use>.
-
-  #!/usr/bin/env perl
-  use Mojar::Mysql::Connector (
-    cnfdir => '/srv/myapp/cfg',
-    cnf    => 'myuser_localhost',
-    schema => 'Stats'
-  );
-
-That sets the class defaults for the remainder of that script or package, and
-for simple cases that is the only place your code needs to deal with connection
-parameters.  When using a persistent multi-application environment (mod_perl,
-plack, hypnotoad, ...) bear in mind that class parameters are shared across the
-process (perl interpreter instance).
-
-=head3 Connectors
-
-Connectors are objects that you pack with your preferred connection parameters
-and then have ready to supply you with database connections.  Their use is
-entirely optional, but their advantages include the following.
-
-=over 4
-
-=item *
-
-Improve the readability of your code by separating the handle configuration from
-handle usage; you can set your parameters in your one-time initialisation and
-keep the usage of database handles free of that clutter.
-
-=item *
-
-Having easy access to fresh handles may encourage developers to play safe by
-discarding stale ones; don't worry whether earlier code has changed the
-C<sql_mode> on the handle, treat yourself to a brand new one.
-
-=item *
-
-Database resources may be better utilised if dormant handles are closed rather
-than being kept open as long as possible.  (On the flip-side, if you are making
-thousands of new connections per second then your usage needs a rethink.)
-
-=item *
-
-Relying on auto_reconnect can be problematic and difficult to debug.
-
-=item *
-
-There are no objects or references within a connector, so it can be
-serialised/deserialised safely and (unlike database handles) can be shared among
-threads/processes/invocations safely.
-
-=back
-
-  use Mojar::Mysql::Connector;
-  my $connector_source = Mojar::Mysql::Connector->new(
-    cnfdir => '/srv/myapp/cfg',
-    cnf => 'myuser_sourcehost',
-    schema => 'Orders');
-  my $connector_target = $connector_source->new(
-    cnf => 'myuser_targethost',
-    schema => 'Reports');
-
-  while (...) {
-    my $dbh_s = $connector_source->connect;
-    my $dbh_t = $connector_target->connect;
-    ...
-    $dbh_s->disconnect;
-    $dbh_t->disconnect;
-  }
-
-If on the other hand your code makes several connections to one db server and
-then all its connections are to a second db server, you can use just one
-connector and modify its params when appropriate.
-
-  my $connector = Mojar::Mysql::Connector->new(cnf => 'myuser_source1');
-  my $dbh = $connector->connect(schema => 'Preorders';
-  ...
-  $dbh->disconnect;
-  $connector->cnf('myuser_source2');
-  $dbh = $connector->connect;
-  ...
-
-You could of course achieve the same effect in that example using no connectors
-and overriding in the connect.
-
-  my $dbh = Mojar::Mysql::Connector->connect(
-    cnf => 'myuser_source1',
-    schema => 'Preorders');
-  ...
-  $dbh->disconnect;
-  $dbh = Mojar::Mysql::Connector->connect(
-    cnf => 'myuser_source2',
-    schema => 'Profiles');
-  ...
-
-=head3 DBH connection-specific parameters
-
-The illustrations above have all shown persisting changes to the defaults at
-either the class or object level; the new defaults are in effect till the end of
-the package/script or till they are changed.  You may also want to pass
-parameters that you do not want to persist, a common example being turning off
-autocommit.
-
-  $dbh = Mojar::Mysql::Connector->connect(AutoCommit => 0);
-
-or
-
-  $dbh = $connector->connect(AutoCommit => 0);
-
-C<AutoCommit> is C<0> for this connection, but defaults are unaffected.
-
-=head3 Inheritance vs parameter overlay
-
-The above illustrates a general principle of the interplay of inheritance and
-parameter overlay; when an object is created it inherits its base values from
-the entity it is created from and overlays on top of those any additional
-parameters it is passed.  Exactly as you would expect, these additional
-parameters have no effect on the entity from which the object was created.
-
-  $connector = Mojar::Mysql::Connector->new(label => 'readonly');
-  $dbh = $connector->new(label => 'readwrite');
-  say Mojar::Mysql::Connector->label;  # still undef
-  say $connector->label;  # still 'readonly'
-
-=head2 Class methods
-
-=head3 C<new>
+=head2 C<new>
 
   Mojar::Mysql::Connector->new(label => 'cache', cnf => 'myuser_localhost');
 
-Constructor for a connector based on class defaults.  Takes a (possibly empty)
-parameter hash.  Returns a connector (Mojar::Mysql::Connector object) the
+Constructor for a connector, based on class defaults.  Takes a (possibly empty)
+list of parameters.  Returns a connector (Mojar::Mysql::Connector object) the
 defaults of which are those of the class overlaid with those passed to the
 constructor.
 
-=head3 C<Defaults>
-
-  print Data::Dumper::Dumper(Mojar::Mysql::Connector->Defaults);
-
-Provides access to the defaults hashref that holds the class defaults in order
-to help debugging.  Each default has a getter/setter of the same name, but as
-described previously, it's fairly risky to change class defaults during runtime
-if you have other code sharing those defaults.
-
-=head3 C<connect>
+=head2 C<connect>
 
  $dbh1 = Mojar::Mysql::Connector->connect(
-   'DBI:mysql:test;host=localhost', 'admin', 's3cr3t', {});
- $dbh2 = Mojar::Mysql::Connector->connect(AutoCommit => 0);
+   'DBI:mysql:test;host=localhost', 'admin', 's3cr3t', {}
+ );
+ $dbh2 = Mojar::Mysql::Connector->connect(
+   schema => 'test',
+   host => 'localhost',
+   user => 'admin',
+   password => 's3cr3t'
+ );
  $dbh3 = Mojar::Mysql::Connector->connect;
 
 Constructor for a connection (db handle).  If the first element passed has
 prefix C<DBI:> then it is a DSN string (the traditional route) and so is passed
 straight to C<DBI::connect> (L<DBI/"DBI Class Methods">).  Otherwise a DSN is
-first constructed.  (The DSN series does not persist and is constructed fresh on
+first constructed.  (The DSN tuple does not persist and is constructed fresh on
 each call to C<connect>.)
 
-=head3 C<dsn>
+In the examples above, $dbh1 and $dbh2 are not equivalent because the second
+connector would also incorporate module defaults and use-time parameters, in
+addition to the passed parameters.  So, for instance, mysql_enable_utf8 may be
+included.
+
+=head2 C<dsn>
 
   @dbi_args = Mojar::Mysql::Connector->dsn(
-    cnf => 'myuser_localhost', schema => 'test');
+    cnf => 'myuser_localhost', schema => 'test'
+  );
 
 A convenience method used internally by connect.  Takes a (possibly empty)
 parameter hash.  Returns a four-element array to pass to C<DBI->connect>,
 constructed from the default values of the constructing class overlaid with any
-additional parameters passed.  Probably the only reason for you using this
-method is if you need to use L<DBI> directly but want to avoid the inconvenience
-of constructing the parameters yourself.
+additional parameters passed.  Probably the only reason for using this method is
+if you want to use L<DBI> (or another DSN-consumer) directly but want to avoid
+the inconvenience of assembling sensible parameters yourself.
 
   use DBI;
   use Mojar::Mysql::Connector (
@@ -803,19 +488,26 @@ of constructing the parameters yourself.
     cnf => 'myuser_localhost'
   );
   my $dbh = DBI->connect(
-    Mojar::Mysql::Connector->dsn(schema => 'foo', AutoCommit => 0));
+    Mojar::Mysql::Connector->dsn(schema => 'foo', AutoCommit => 0)
+  );
 
-=head3 C<dsn_as_string>
+=head2 C<dsn_to_dump>
 
-  Carp::carp(Mojar::Mysql::Connector->dsn_as_string(@dsn));
+  warn(Mojar::Mysql::Connector->dsn_to_dump(@dsn));
 
 A convenience method used internally to chop up the four-element array
-(particularly the fourth element, the hash ref) into something more readable, eg
-for error reporting and debugging.
+(particularly the fourth element, the hash ref) into something more readable,
+for error reporting and debugging.  Will occlude any password included.
 
-=head2 Object methods
+=head2 C<Defaults>
 
-=head3 C<new>
+  say Mojar::Util::dumper(Mojar::Mysql::Connector->Defaults);
+
+Provides access to the class defaults in order to help debugging.
+
+=head1 OBJECT METHODS
+
+=head2 C<new>
 
   $connector->new(label => 'transaction', AutoCommit => 0);
 
@@ -824,7 +516,7 @@ Constructor for a connector based on an existing connector's defaults.  Takes a
 object) the defaults of which are those of the given connector overlaid with
 those passed to the constructor.
 
-=head3 C<connect>
+=head2 C<connect>
 
   $dbh = $connector->connect(
     'DBI:mysql:test;host=localhost', 'admin', 's3cr3t', {});
@@ -833,9 +525,10 @@ those passed to the constructor.
 
 Constructor for a connection (db handle).  If the first element passed has
 prefix C<DBI:> then it is a DSN string (the traditional route) and so is passed
-straight to C<DBI::connect> (L<DBI/"DBI Class Methods">).  Otherwise a DSN is
-first constructed.  (The DSN series does not persist and is constructed fresh on
-each call to C<connect>.)
+straight to C<DBI::connect> (L<DBI/"DBI Class Methods">) without consideration
+of the connector's existing parameters.  Otherwise a DSN is first constructed.
+(The DSN tuple does not persist and is constructed fresh on each call to
+C<connect>.)
 
 =head2 Attributes
 
@@ -845,12 +538,9 @@ spelling.  So for example you can
   $connector->RaiseError(undef);  # disable RaiseError
   $connector->mysql_enable_utf8(1);  # enable mysql_enable_utf8
 
-These also function as class attributes, but as previously mentioned, safest
-to use only as getters rather than class setters.
+=head1 DATABASE HANDLE METHODS
 
-=head2 Database handle methods
-
-=head3 C<mysqld_version>
+=head2 C<mysqld_version>
 
   if ($dbh->mysqld_version =~ /^5.0/) {...}
 
@@ -858,14 +548,14 @@ Returns the version of the db server connected to; the version part of
 
   mysqld --version
 
-=head3 C<thread_id>
+=head2 C<thread_id>
 
   $tmp_table_name = q{ConcurrencySafe_}. $dbh->thread_id;
 
 Utility method to get the connection's thread identifier (unique on that db
 server at that point in time).
 
-=head3 C<current_schema>
+=head2 C<current_schema>
 
   $schema_name = $dbh->current_schema;
 
@@ -873,7 +563,7 @@ The same string as given by
 
   SELECT DATABASE();
 
-=head3 C<session_var>
+=head2 C<session_var>
 
   my ($old) = $dbh->session_var(sql_mode => 'ANSI_QUOTES');
   ...
@@ -890,7 +580,7 @@ returns the handle to facilitate chaining.
   $dbh->session_var(var1 => ...)
       ->session_var(var2 => ...);
 
-=head3 C<disable_quotes>
+=head2 C<disable_quotes>
 
   my @ddl = $dbh->disable_quotes->selectrow_array(q{SHOW CREATE ...});
 
@@ -898,31 +588,31 @@ Disable optional quotes around identifiers.  Currently only affects output of
 C<SHOW CREATE TABLE>.  If you have unsafe identifiers (eg spaces or keywords)
 then those will still be quoted.  Lasts the lifetime of the connection.
 
-=head3 C<enable_quotes>
+=head2 C<enable_quotes>
 
 The inverse of C<disable_quotes>.
 
-=head3 C<disable_fk_checks>
+=head2 C<disable_fk_checks>
 
   $dbh->disable_fk_checks->do(q{DROP TABLE ...});
 
 Disable foreign key checks.  Lasts the lifetime of the connection.
 
-=head3 C<enable_fk_checks>
+=head2 C<enable_fk_checks>
 
 The inverse of C<disable_fk_checks>.
 
-=head3 C<schemata>
+=head2 C<schemata>
 
   for my $schema (@{$dbh->schemata}) {...}
 
-Returns a hashref of schema names, similar to
+Returns a arrayref of schema names, similar to
 
   SHOW DATABASES
 
 but does not get fooled by C<lost+found>.
 
-=head3 C<tables_and_views>
+=head2 C<tables_and_views>
 
   foreach my $table ($dbh->tables_and_views) {...}
 
@@ -932,21 +622,21 @@ Returns a hashref of table and view names, similar to
 
 See also L<DBI/tables>.
 
-=head3 C<real_tables>
+=head2 C<real_tables>
 
   for my $table (@{$dbh->real_tables}) {...}
 
-Returns a hashref of real table names, similar to
+Returns a arrayref of real table names, similar to
 
   SHOW TABLES
 
 but excluding views.
 
-=head3 C<views>
+=head2 C<views>
 
   for my $view (@{$dbh->views}) {...}
 
-Returns a hashref of view names, similar to
+Returns a arrayref of view names, similar to
 
   SHOW TABLES
 
@@ -981,11 +671,11 @@ connections.
 
 =head1 SEE ALSO
 
-L<Coro::Mysql>, L<AnyEvent::DBI>, L<DBIx::Custom>, L<DBIx::Connector>.
+L<Coro::Mysql>, L<AnyEvent::DBI>, L<DBIx::Custom>, L<DBIx::Connector>, L<DBI>.
 
 =head1 COPYRIGHT AND LICENCE
 
-Copyright (C) 2002--2013, Nic Sandfield.
+Copyright (C) 2002--2014, Nic Sandfield.
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.

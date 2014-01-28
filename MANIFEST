@@ -1,0 +1,15 @@
+Changes
+data/backup__test_myapp.sql
+data/testmyappro_localhost.cnf
+lib/Mojar/Mysql.pm
+lib/Mojar/Mysql/Connector.pm
+LICENSE
+Makefile.PL
+MANIFEST
+MANIFEST.SKIP
+README.md
+test/00-load.t
+test/30-mysql-connector.t
+test/31-mysql-helper.t
+test/manifest.t
+test/pod.t

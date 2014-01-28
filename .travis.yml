@@ -1,5 +1,6 @@
 language: perl
 perl:
+  - "5.18"
   - "5.16"
   - "5.14"
   - "5.12"
@@ -10,4 +11,4 @@ before_install:
   - sudo apt-get install libmysqlclient-dev
   - "cpanm -n Test::Pod Test::Pod::Coverage"
 before_script:
-  - mysql -u root <data/backup__myapp_test.sql
+  - mysql -u root <data/backup__test_myapp.sql
