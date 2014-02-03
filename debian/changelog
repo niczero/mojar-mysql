@@ -1,3 +1,9 @@
+libmojar-mysql-perl (2.042) squeeze; urgency=low
+
+  * Fixed name of dsn_to_dump (Util).
+
+ -- Nic Sandfield <niczero@cpan.org>  Mon, 03 Feb 2014 21:25 +0000
+
 libmojar-mysql-perl (2.041) squeeze; urgency=low
 
   * Removed :sql_types (Connector).

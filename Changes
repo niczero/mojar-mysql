@@ -1,3 +1,6 @@
+2.042 2014-02-03
+  * Fixed name of dsn_to_dump (Util).
+
 2.041 2014-01-28
   * Removed :sql_types (Connector).
   * Improved documentation (showed usage of helpers).

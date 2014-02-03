@@ -111,7 +111,7 @@ sub connect {
   or do {
     my $e = $@;
     croak sprintf "Connection error\n%s\n%s",
-        $proto->dsn_as_string(@args), $e;
+        $proto->dsn_to_dump(@args), $e;
   };
   return $dbh;
 }
@@ -160,7 +160,7 @@ sub dsn {
   );
 }
 
-sub dsn_as_string {
+sub dsn_to_dump {
   my ($proto, @args) = @_;
   # Occlude password
   if ($args[2] and $_ = length $args[2] and $_ > 1) {
@@ -679,5 +679,3 @@ Copyright (C) 2002--2014, Nic Sandfield.
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.
-
-=cut
