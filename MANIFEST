@@ -13,3 +13,4 @@ test/30-mysql-connector.t
 test/31-mysql-helper.t
 test/manifest.t
 test/pod.t
+test/version.t

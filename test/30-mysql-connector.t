@@ -75,7 +75,7 @@ subtest q{dsn} => sub {
 };
 
 SKIP: {
-  skip 'set TEST_MYSQL to enable this test (developer only!)', 1
+  skip 'set TEST_MYSQL to enable this test (developer only!)', 2
     unless $ENV{TEST_MYSQL} || $ENV{TRAVIS};
 
 my $dbh;

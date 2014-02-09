@@ -1,10 +1,19 @@
-libmojar-mysql-perl (2.042) squeeze; urgency=low
+libmojar-mysql-perl (2.051) wheezy; urgency=low
 
-  * Fixed name of dsn_to_dump (Util).
+  * Added engine_status (Connector).
+  * Fixed dsn to allow omitting schema name (Connector).
+  * Added trap for (re)use params being different (Connector).
+  * Changed implementation of Defaults to use singleton object (Connector).
+
+ -- Nic Sandfield <niczero@cpan.org>  Sun, 09 Feb 2014 22:13 +0000
+
+libmojar-mysql-perl (2.042) wheezy; urgency=low
+
+  * Fixed name of dsn_to_dump (Connector).
 
  -- Nic Sandfield <niczero@cpan.org>  Mon, 03 Feb 2014 21:25 +0000
 
-libmojar-mysql-perl (2.041) squeeze; urgency=low
+libmojar-mysql-perl (2.041) wheezy; urgency=low
 
   * Removed :sql_types (Connector).
   * Improved documentation (showed usage of helpers).
@@ -23,21 +32,21 @@ libmojar-mysql-perl (2.034) squeeze; urgency=low
 libmojar-mysql-perl (2.033) squeeze; urgency=low
 
   * Tweaked meta files.
-  * Fixed POD bug (Mysql::Connector).
-  * Improved documentation (Mysql::Connector).
+  * Fixed POD bug (Connector).
+  * Improved documentation (Connector).
 
  -- Nic Sandfield <niczero@cpan.org>  Tue, 01 Jan 2013 16:00 +0000
 
 libmojar-mysql-perl (2.032) squeeze; urgency=low
 
-  * Modified dsn to support omitting schema name (Mysql::Connector).
+  * Modified dsn to support omitting schema name (Connector).
 
  -- Nic Sandfield <niczero@cpan.org>  Mon, 31 Dec 2012 22:49 +0000
 
 libmojar-mysql-perl (2.031) squeeze; urgency=low
 
-  * Revised some defaults (Mysql::Connector).
-  * Improved documentation (Mysql::Connector).
+  * Revised some defaults (Connector).
+  * Improved documentation (Connector).
   * Added travis support.
 
  -- Nic Sandfield <niczero@cpan.org>  Mon, 31 Dec 2012 21:55 +0000

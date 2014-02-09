@@ -1,5 +1,11 @@
+2.051 2014-02-09
+  * Added engine_status (Connector).
+  * Fixed dsn to allow omitting schema name (Connector).
+  * Added trap for (re)use params being different (Connector).
+  * Changed implementation of Defaults to use singleton object (Connector).
+
 2.042 2014-02-03
-  * Fixed name of dsn_to_dump (Util).
+  * Fixed name of dsn_to_dump (Connector).
 
 2.041 2014-01-28
   * Removed :sql_types (Connector).

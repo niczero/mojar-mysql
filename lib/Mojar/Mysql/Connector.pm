@@ -5,7 +5,7 @@ use Mojo::Base 'DBI';
 # Register subclass structure
 __PACKAGE__->init_rootclass;
 
-our $VERSION = 2.041;
+our $VERSION = 2.111;
 
 use File::Spec::Functions 'catfile';
 use Mojar::ClassShare 'have';
@@ -41,9 +41,14 @@ sub import {
     }
   }
   # Global defaults
-  if (%param and keys %{$pkg->Defaults}) {
-    # Already have defaults => die
-    die "Redefining class defaults for $pkg";
+  if (%param and %{$pkg->Defaults}) {
+    # Already have defaults => check unchanged
+    # Not interested in defaults of Defaults => use hash not methods
+    my $ps = join ':', map +($_ .':'. ($param{$_} // 'undef')),
+        sort keys %param;
+    my $ds = join ':', map +($_ .':'. ($pkg->Defaults->{$_} // 'undef')),
+        sort keys %{$pkg->Defaults};
+    die "Redefining class defaults for $pkg" unless $ps eq $ds;
   }
   @{$pkg->Defaults}{keys %param} = values %param if %param;
   # Debugging
@@ -53,8 +58,8 @@ sub import {
 
 # Class attribute
 
-# Use a hash for holding use-time class defaults
-have Defaults => sub { {} };
+# Use a singleton object for holding use-time class defaults
+have Defaults => sub { bless {} => ref $_[0] || $_[0] };
 
 # Attributes
 
@@ -95,15 +100,15 @@ sub new {
   my ($proto, %param) = @_;
   # $proto may contain defaults to be cloned
   # %param may contain defaults for overriding
-  my %defaults = ref $proto ? ( %{ ref($proto)->Defaults }, %$proto ) : %{ $proto->Defaults };
+  my %defaults = ref $proto ? ( %{ ref($proto)->Defaults }, %$proto )
+                            : %{ $proto->Defaults };
   return Mojo::Base::new($proto, %defaults, %param);
 }
 
 sub connect {
   my ($proto, @args) = @_;
   my $class = ref $proto || $proto;
-  @args = $proto->dsn(@args)
-    unless @args and $args[0] =~ /^DBI:/i;
+  @args = $proto->dsn(@args) unless @args and $args[0] =~ /^DBI:/i;
   my $dbh;
   eval {
     $dbh = $class->SUPER::connect(@args)
@@ -118,128 +123,112 @@ sub connect {
 
 sub dsn {
   my ($proto, %param) = @_;
-
-  # Derive dynamic defaults from object or class
-  my %defaults = ref $proto ? ( %{ ref($proto)->Defaults }, %$proto )
-                            : %{ $proto->Defaults };
-  # Absorb dynamic defaults
-  %param = ( %defaults, %param ) if %defaults;
-  # Fallback to static defaults
-  exists $param{$_} or $param{$_} = $proto->$_
-    for @ConFields, @DbiFields, @DbdFields;
+  my $param = $proto->new(%param);
 
   my $cnf_txt = '';
-  if (my $cnf = $param{cnf}) {
+  if (my $cnf = $param->cnf) {
     # MySQL .cnf file
     $cnf .= '.cnf' unless $cnf =~ /\.cnf$/;
-    $cnf = catfile $param{cnfdir}, $cnf if ! -r $cnf and defined $param{cnfdir};
-    croak "Failed to find .cnf file ($cnf)" unless -f $cnf;
-    croak "Failed to read .cnf file ($cnf)" unless -r $cnf;
+    $cnf = catfile $param->cnfdir, $cnf if ! -r $cnf and defined $param->cnfdir;
+    croak "Failed to find/read .cnf file ($cnf)" unless -f $cnf and -r $cnf;
 
     $cnf_txt = ';mysql_read_default_file='. $cnf;
-    $cnf_txt .= ';mysql_read_default_group='. $param{cnfgroup}
-      if defined $param{cnfgroup};
+    $cnf_txt .= ';mysql_read_default_group='. $param->cnfgroup
+      if defined $param->cnfgroup;
   }
 
   # DBD params
   # Only set private_config if it would have useful values
   my %custom;
-  defined $param{$_} and $custom{$_} = $param{$_} for qw(label cnf cnfgroup);
+  defined($param->$_) and $custom{$_} = $param->$_ for qw(label cnf cnfgroup);
   my $dbd_param = %custom ? { private_config => {%custom} } : {};
-  @$dbd_param{@DbdFields} = @param{@DbdFields};
+  @$dbd_param{@DbdFields} = map $param->$_, @DbdFields;
 
   return (
-    'DBI:'. $param{driver} .q{:}
-          . ($param{schema} // $param{db} // '')
-          . (defined $param{host} ? q{;host=}. $param{host} : '')
-          . (defined $param{port} ? q{;port=}. $param{port} : '')
+    'DBI:'. $param->driver .q{:}
+          . ($param->schema // $param->{db} // '')
+          . (defined $param->host ? q{;host=}. $param->host : '')
+          . (defined $param->port ? q{;port=}. $param->port : '')
           . $cnf_txt,
-    $param{user},
-    $param{password},
+    $param->user,
+    $param->password,
     $dbd_param
   );
 }
 
 sub dsn_to_dump {
   my ($proto, @args) = @_;
+  @args = $proto->dsn unless @args;
   # Occlude password
   if ($args[2] and $_ = length $args[2] and $_ > 1) {
     --$_;
     my $blanks = '*' x $_;
     $args[2] = substr($args[2], 0, 1). $blanks;
   }
-  require Data::Dumper;
-  my $s = Data::Dumper::Dumper([@args]);
-  $s =~ s/^\$VAR1 /dsn /;
-  $s =~ s/^\s+]/]/m;
-  $s =~ s/\n\z//;
-  return $s;
+  require Mojar::Util;
+  return Mojar::Util::dumper(@args);
 }
 
 # ============
 package Mojar::Mysql::Connector::db;
 @Mojar::Mysql::Connector::db::ISA = 'DBI::db';
 
+use Mojar::Util 'lc_keys';
 use Scalar::Util 'looks_like_number';
 
-# Private function
+# Private functions
 
 sub croak { require Carp; goto &Carp::croak; }
 
+our $_as_hash = { Slice => {} };
+sub as_hash { $_as_hash }
+
 # Public methods
+
+sub dsn { shift->get_info(2) }
+# 2 : SQL_DATA_SOURCE_NAME
 
 sub mysqld_version { shift->get_info(18) }
 # 18 : SQL_DBMS_VER
+
+sub identifier_quote { shift->get_info(29) }
+# 29 : SQL_IDENTIFIER_QUOTE_CHAR
+
+sub identifier_separator { shift->get_info(41) }
+# 41 : SQL_QUALIFIER_NAME_SEPARATOR
+
+sub async_mode { shift->get_info(10021) }
+# 10021 : SQL_ASYNC_MODE
+
+sub async_max_statements { shift->get_info(10022) }
+# 10022 : SQL_MAX_ASYNC_CONCURRENT_STATEMENTS
 
 sub thread_id { shift->{mysql_thread_id} // 0 }
 
 sub current_schema {
   my ($self) = @_;
-  my $schema_name;
-  eval {
-    ($schema_name) = $self->selectrow_array(
-q{SELECT DATABASE()});
-    1;
-  }
-  or do {
-    my $e = $@ // '';
-    croak "Failed to identify schema name\n$e";
-  };
-  return $schema_name;
+  my ($schema) = $self->selectrow_array(
+q{SELECT DATABASE()}
+  );
+  return $schema;
 }
 
-sub session_var {
-  my ($self, $var, $value) = (shift, shift, undef);
-  croak 'Missing var name' unless defined $var and length $var;
-  unless (@_) {
-    eval {
-      ($value) = $self->selectrow_array(sprintf
-q{SELECT @@session.%s}, $var);
-      1;
-    }
-    or do {
-      my $e = $@ // '';
-      croak "Failed to get var ($var)\n$e";
-    };
-    return $value;
-  }
+sub session_var { shift->_var('SESSION', @_) }
 
-  $value = shift;
-  my ($old, $new);
-  eval {
-    ($old) = $self->selectrow_array(sprintf
-q{SELECT @@session.%s}, $var);
-    $value = sprintf "'%s'", $value unless looks_like_number $value;
-    $self->do(qq{SET SESSION $var = $value});
-    ($new) = $self->selectrow_array(sprintf
-q{SELECT @@session.%s}, $var);
-    1;
-  }
-  or do {
-    my $e = $@ // '';
-    croak "Failed to set var ($var)\n$e";
-  };
-  return wantarray ? ($old, $new) : $self;
+sub global_var {
+  my $self = shift;
+  return $self->_var('GLOBAL', @_)
+    if @_ >= 2 or @_ == 1 and $_[0] ne 'have_innodb';
+
+  my $variables = $self->_var('GLOBAL');
+
+  # Workaround for MySQL bug #59393 wrt ignore-builtin-innodb
+  $variables->{have_innodb} = 'NO'
+    if exists $variables->{ignore_builtin_innodb}
+        and ($variables->{ignore_builtin_innodb} // '') eq 'ON';
+
+  return $variables->{have_innodb} if @_ == 1 and $_[0] eq 'have_innodb';
+  return $variables;
 }
 
 sub disable_quotes { shift->session_var( sql_quote_show_create => 0 ) }
@@ -312,6 +301,180 @@ sub views {
   return $self->tables_and_views(@args[0,1], 'VIEW', $args[2]);
 }
 
+sub selectall_arrayref_hashrefs {
+  my ($self, $sql, $opts, @args) = @_;
+  if (defined $opts) {
+    $opts->{Slice} = {};
+  }
+  else {
+    $opts = $_as_hash;
+  }
+  return $self->selectall_arrayref($sql, $opts, @args);
+}
+
+sub processes {
+  my $p = shift->selectall_arrayref_hashrefs(q{SHOW FULL PROCESSLIST});
+  @$p = map lc_keys($_), @$p;
+  return $p;
+}
+
+sub engines {
+  my ($self) = @_;
+
+  my $engines = {};
+  my $e = $self->selectall_arrayref(q{SHOW ENGINES});
+  for (@$e) {
+    if ($_->[1] eq 'DEFAULT') {
+      $engines->{default} = lc $_->[0];
+      $engines->{lc $_->[0]} = 1;
+    }
+    else {
+      $engines->{lc $_->[0]} = $_->[1] eq 'YES' ? 1 : 0;
+    }
+  }
+  return $engines;
+}
+
+sub statistics {
+  my ($self) = @_;
+
+  # Arbitrary query to ensure results
+  ($_) = $self->selectrow_array(q{SELECT VERSION()});
+
+  my $s = $self->selectall_arrayref(q{SHOW /*!50000 GLOBAL */ STATUS});
+  return lc_keys { map @$_, @$s };
+}
+
+sub indices {
+  my ($self, $schema, $table) = @_;
+  croak 'Missing required schema name' unless defined $schema and length $schema;
+  croak 'Missing required table name'  unless defined $table and length $table;
+  my $i = $self->selectall_arrayref(sprintf(
+q{SHOW INDEXES FROM %s IN %s}, $table, $schema
+    ), $_as_hash
+  );
+  # $i is arrayref of hashrefs
+  lc_keys $_ for @$i;
+  return $i;
+}
+
+sub table_status {
+  my ($self, $schema, $table_pattern) = @_;
+  croak 'Missing required schema name' unless defined $schema and length $schema;
+  my $sql = sprintf
+q{SHOW TABLE STATUS FROM %s}, $schema;
+  $sql .= sprintf(q{ LIKE '%s'}, $table_pattern) if defined $table_pattern;
+  my $s = $self->selectall_arrayref($sql, $_as_hash);
+  # $s is arrayref of hashrefs
+  lc_keys $_ for @$s;
+  return $s;
+}
+
+sub engine_status {
+  my ($self, $engine) = @_;
+  $engine //= 'InnoDB';
+
+  my ($raw) = $self->selectrow_array(
+q{SHOW INNODB STATUS}
+  );
+
+  my ($title, $buffer) = ('', '');
+  my $status = {};
+  for (split /^/, $raw) {
+    if (/^\-+$/ and length $buffer) {
+      # Finish previous record
+      $status->{$title} = $buffer;
+      $title = $buffer = '';
+    }
+    elsif (/^-+$/) {
+      # Start new record
+    }
+    elsif (not length $title) {
+      chomp;
+      $title = lc $_;
+      $title =~ s/\s/_/g;
+      $title =~ s/\W//g;
+    }
+    else {
+      $buffer .= $_;
+    }
+    # Ignore final record
+  }
+  return $status;
+}
+
+sub table_space {
+  my ($self, $schema, $table) = @_;
+  my $space;
+  eval {
+    ($space) = $self->selectrow_array(
+q{SELECT CONCAT(TRUNCATE(DATA_FREE / 1024, 0), ' kB')
+FROM information_schema.TABLES
+WHERE
+  TABLE_SCHEMA = ?
+  AND TABLE_NAME = ?},
+      undef,
+      $schema, $table
+    );
+    $space ne '0 kB';
+  }
+  or eval {
+    my $comment = $self->table_status($schema, $table)->[0]{comment};
+    $space = $1 if $comment =~ /InnoDB free: (\d+ \w+)/;
+  };
+  return $space;
+}
+
+sub date_from_today {
+  my ($self, $days, $format) = @_;
+  $days //= 0;
+  $format //= '%Y-%m-%d';
+  my ($date) = $self->selectrow_array(sprintf
+q{SELECT DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL %s DAY), '%s')},
+    $days, $format
+  );
+  return $date;
+}
+
+# Private method
+
+sub _var {
+  my ($self, $scope) = (shift, shift);
+  $scope //= 'SESSION';
+
+  unless (@_) {
+    # All vars
+    my $v = $self->selectall_arrayref(qq{SHOW $scope VARIABLES});
+    return { map @$_, @$v };
+  }
+
+  my $var = shift;
+  unless (@_) {
+    # Getter
+    my ($value) = $self->selectrow_array(sprintf
+q{SELECT @@%s.%s}, $scope, $var);
+    return $value;
+  }
+
+  # Setter
+  my $value = shift;
+  my ($old, $new);
+  eval {
+    ($old) = $self->selectrow_array(sprintf
+q{SELECT @@%s.%s}, $scope, $var);
+    $value = "'$value'" unless looks_like_number $value;
+    $self->do(qq{SET $scope $var = $value});
+    ($new) = $self->selectrow_array(sprintf
+q{SELECT @@%s.%s}, $scope, $var);
+    1;
+  }
+  or do {
+    my $e = $@ // '';
+    croak "Failed to set var ($var)\n$e";
+  };
+  return wantarray ? ($old, $new) : $self;
+}
+
 #TODO: clean up this ancient code
 #sub insert_hash {
 #  my ($self, $schema, $table, $field_map) = @_;
@@ -382,7 +545,7 @@ In an application making multiple types of connection.
     schema => 'Reports'
   );
   ...
-  my $read_dbh = $read_connector->connect(auto_reconnect => 1);
+  my $read_dbh = $read_connector->connect(mysql_auto_reconnect => 1);
   my $write_dbh = $write_connector->connect;
 
 Employing a helper.
@@ -406,11 +569,11 @@ From the commandline.
 
 =head1 DESCRIPTION
 
-MySQL-specific extension (subclass) to DBI in order to improve convenience,
+MySQL-specific extension (subclass) to L<DBI> in order to improve convenience,
 security, and error handling.  Supports easy use of credential (cnf) files, akin
 to
 
-  mysql --defaults-file=$CRED_FILE
+  mysql --defaults-file=credentials.cnf
 
 It aims to reduce boilerplate, verbosity, mistakes, and parameter overload, but
 above all it tries to make it quick and easy to Do The Right Thing.
@@ -431,8 +594,9 @@ your code.  The helper will cache your database handle and create a new one
 automatically if the old one is destroyed or goes stale.
 
 The fourth layer of convenience is provided by the added database handle
-methods.  Changing session variables is as easy as chaining methods, listing
-only genuine tables (C<real_tables>) is easy, and there's more.
+methods.  Changing session variables (C<session_var>) is easy, listing only
+genuine tables (C<real_tables>) is easy, and there's
+L<more|/"DATABASE HANDLE METHODS">.
 
 =head1 CLASS METHODS
 
@@ -466,8 +630,8 @@ each call to C<connect>.)
 
 In the examples above, $dbh1 and $dbh2 are not equivalent because the second
 connector would also incorporate module defaults and use-time parameters, in
-addition to the passed parameters.  So, for instance, mysql_enable_utf8 may be
-included.
+addition to the passed parameters.  So, for instance, mysql_enable_utf8 might be
+included in the second connector.
 
 =head2 C<dsn>
 
@@ -476,11 +640,11 @@ included.
   );
 
 A convenience method used internally by connect.  Takes a (possibly empty)
-parameter hash.  Returns a four-element array to pass to C<DBI->connect>,
+parameter hash.  Returns a four-element array to pass to C<DBI::connect>,
 constructed from the default values of the constructing class overlaid with any
-additional parameters passed.  Probably the only reason for using this method is
-if you want to use L<DBI> (or another DSN-consumer) directly but want to avoid
-the inconvenience of assembling sensible parameters yourself.
+additional parameters passed.  The main reason for using this method is when you
+want to use L<DBI> (or another DSN-consumer) directly but want to avoid the
+inconvenience of assembling sensible parameters yourself.
 
   use DBI;
   use Mojar::Mysql::Connector (
@@ -497,7 +661,7 @@ the inconvenience of assembling sensible parameters yourself.
 
 A convenience method used internally to chop up the four-element array
 (particularly the fourth element, the hash ref) into something more readable,
-for error reporting and debugging.  Will occlude any password included.
+for error reporting and debugging.  Tries to occlude any password within.
 
 =head2 C<Defaults>
 
@@ -511,10 +675,10 @@ Provides access to the class defaults in order to help debugging.
 
   $connector->new(label => 'transaction', AutoCommit => 0);
 
-Constructor for a connector based on an existing connector's defaults.  Takes a
+Constructor for a connector based on an existing connector.  Takes a
 (possibly empty) parameter hash.  Returns a connector (Mojar::Mysql::Connector
 object) the defaults of which are those of the given connector overlaid with
-those passed to the constructor.
+any arguments passed in.
 
 =head2 C<connect>
 
@@ -661,7 +825,7 @@ code was using sensible parameters and awkward ensuring use of risky parameters
 (eg C<disable_fk_checks>) was kept local.  As use of this class spread, it had
 to be useful in persistent high performance applications as well as many small
 scripts and the occasional commandline.  More recently I discovered the Joy of
-Mojolicious and employed L<Mojo::Base> to remove unwanted complexity and
+L<Mojolicious> and employed L<Mojo::Base> to remove unwanted complexity and
 eliminate a long-standing bug.  The ensuing fun motivated an extensive rewrite,
 fixing broken documentation, improved the tests (thank you travis), and we have,
 finally, its public release.  As noted below there are now quite a few smart
