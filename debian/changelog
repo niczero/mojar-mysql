@@ -1,9 +1,17 @@
-libmojar-mysql-perl (2.051) wheezy; urgency=low
+libmojar-mysql-perl (2.063) wheezy; urgency=low
+
+  * Renamed selectall_hashref -> selectall_arrayref_hashref (Connector).
+  * Fixed docn typo (Connector).
+
+ -- Nic Sandfield <niczero@cpan.org>  Tue, 11 Feb 2014 23:04 +0000
+
+libmojar-mysql-perl (2.052) wheezy; urgency=low
 
   * Added engine_status (Connector).
   * Fixed dsn to allow omitting schema name (Connector).
   * Added trap for (re)use params being different (Connector).
   * Changed implementation of Defaults to use singleton object (Connector).
+  * Fixed docn typo (Connector).
 
  -- Nic Sandfield <niczero@cpan.org>  Sun, 09 Feb 2014 22:13 +0000
 

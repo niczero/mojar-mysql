@@ -1,3 +1,7 @@
+2.063 2014-02-11
+  * Renamed selectall_hashref -> selectall_arrayref_hashref (Connector).
+  * Fixed docn typo (Connector).
+
 2.051 2014-02-09
   * Added engine_status (Connector).
   * Fixed dsn to allow omitting schema name (Connector).

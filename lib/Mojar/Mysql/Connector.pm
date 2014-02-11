@@ -5,7 +5,7 @@ use Mojo::Base 'DBI';
 # Register subclass structure
 __PACKAGE__->init_rootclass;
 
-our $VERSION = 2.111;
+our $VERSION = 2.113;
 
 use File::Spec::Functions 'catfile';
 use Mojar::ClassShare 'have';
@@ -704,6 +704,25 @@ spelling.  So for example you can
 
 =head1 DATABASE HANDLE METHODS
 
+=head2 C<selectall_arrayref_hashref>
+
+  $_->{Command} ne 'Sleep' and say $_->{User}
+    for $dbh->selectall_arrayref_hashrefs(q{SHOW FULL PROCESSLIST});
+
+  printf '%s can select: %s', $_->{User}, $_->{Select_priv}
+    for $dbh->selectall_arrayref_hashrefs(q{SELECT * FROM mysql.user});
+
+Returns an arrayref of hashrefs, each hashref being a record of the resultset.
+The keys of the hashref are the column/field names of the record.  This is
+simply minimal sugar on the selectall_arrayref method provided by DBI; it saves
+the little boilerplate of "Slice => {}".  If you want to pass bound values then
+you need undef as the second argument.
+
+  printf '%s can select: %s', $_->{User}, $_->{Select_priv}
+    for $dbh->selectall_arrayref_hashrefs(
+      q{SELECT * FROM mysql.user WHERE User != ?}, undef, 'root'
+    );
+
 =head2 C<mysqld_version>
 
   if ($dbh->mysqld_version =~ /^5.0/) {...}
@@ -770,7 +789,7 @@ The inverse of C<disable_fk_checks>.
 
   for my $schema (@{$dbh->schemata}) {...}
 
-Returns a arrayref of schema names, similar to
+Returns an arrayref of schema names, similar to
 
   SHOW DATABASES
 
