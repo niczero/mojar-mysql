@@ -3,6 +3,7 @@ data/backup__test_myapp.sql
 data/testmyappro_localhost.cnf
 lib/Mojar/Mysql.pm
 lib/Mojar/Mysql/Connector.pm
+lib/Mojar/Mysql/Util.pm
 LICENSE
 Makefile.PL
 MANIFEST

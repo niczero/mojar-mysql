@@ -1,5 +1,11 @@
 libmojar-mysql-perl (2.063) wheezy; urgency=low
 
+  * Added find_monotonic_first (Util).
+
+ -- Nic Sandfield <niczero@cpan.org>  Mon, 10 Mar 2014 21:03 +0000
+
+libmojar-mysql-perl (2.063) wheezy; urgency=low
+
   * Renamed selectall_hashref -> selectall_arrayref_hashref (Connector).
   * Fixed docn typo (Connector).
 
