@@ -1,4 +1,10 @@
-libmojar-mysql-perl (2.063) wheezy; urgency=low
+libmojar-mysql-perl (2.072) wheezy; urgency=low
+
+  * Added documentation (Util).
+
+ -- Nic Sandfield <niczero@cpan.org>  Thu, 13 Mar 2014 21:50 +0000
+
+libmojar-mysql-perl (2.071) wheezy; urgency=low
 
   * Added find_monotonic_first (Util).
 

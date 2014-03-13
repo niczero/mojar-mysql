@@ -1,6 +1,8 @@
 package Mojar::Mysql::Util;
 use Mojo::Base -strict;
 
+our $VERSION = 0.001;
+
 require Carp;
 
 sub import {
@@ -230,3 +232,55 @@ EOT
 
 1;
 __END__
+
+=head1 NAME
+
+Mojar::Mysql::Util - MySQL utility functions
+
+=head1 SYNOPSIS
+
+  use Mojar::Mysql::Util 'find_monotonic_first';
+
+  my $key_val = find_monotonic_first(
+    $dbh, 'Orders', 'CustomerOrder', 'iOrderId', q{'2010-01-01' <= dPlaced}
+  );
+
+=head1 DESCRIPTION
+
+=head1 FUNCTIONS
+
+=head2 find_monotonic_first
+
+  $key_val = find_monotonic_first($dbh, $schema, $table, $field, $condition)
+
+Finds the first value for the specified field for which the record satisfies
+the condition.  The condition must be monotonic increasing with respect to the
+field in question.  This means that as you go through records in order of
+increasing values of the field, once the condition is satisfied, it is also
+satisfied for all later records.  The condition is any string of SQL that is valid within the parentheses of
+
+  SELECT ... WHERE (...);
+
+The most common application for this is when the field is the primary key of
+the table and the condition focuses on a field that is not indexed.  For
+example, finding the first order placed within the past 28 days; the order id
+is the primary key and the datetime is not indexed.  Another scenario is having
+a batch job attribute analytics events to orders; to find where to resume, it
+needs to find the first record having NULL for its events field.
+Non-scientific trials suggest on tables of 20+ million records, using
+find_monotonic_first is around 50 times faster than letting MySQL do a linear
+search.
+
+Bear in mind that results are unreliable if the condition is non-monotonic.  A
+special case is when the final record is found not to satisfy the condition;
+the algorithm concludes that the condition is insatiable and bails out (with
+undef).  For tables with fewer than 2 million records, there is probably little
+point to using this.  It makes most sense with InnoDB or XtraDB tables when you
+want to find the first primary key value that satisfies a condition that can't
+be found using indices.  In this case the algorithm is searching the clustered
+(primary) index in a way that has maximum immunity to record locking.  So it's
+not just fast, it avoids contention with concurrent processes.
+
+=head1 SEE ALSO
+
+L<Mojar::Util>, L<Mojo::Util>.
