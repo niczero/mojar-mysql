@@ -704,7 +704,7 @@ spelling.  So for example you can
 
 =head1 DATABASE HANDLE METHODS
 
-=head2 C<selectall_arrayref_hashref>
+=head2 C<selectall_arrayref_hashrefs>
 
   $_->{Command} ne 'Sleep' and say $_->{User}
     for $dbh->selectall_arrayref_hashrefs(q{SHOW FULL PROCESSLIST});
