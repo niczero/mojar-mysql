@@ -1,4 +1,7 @@
-2.073 2014-03-18
+2.081 2014-07-06
+  * Added connection (Connector).
+
+2.073 2014-07-02
   * Fixed documentation (Connector).
 
 2.072 2014-03-13

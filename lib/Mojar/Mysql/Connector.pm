@@ -5,8 +5,9 @@ use Mojo::Base 'DBI';
 # Register subclass structure
 __PACKAGE__->init_rootclass;
 
-our $VERSION = 2.113;
+our $VERSION = 2.121;
 
+use Carp 'croak';
 use File::Spec::Functions 'catfile';
 use Mojar::ClassShare 'have';
 
@@ -90,10 +91,6 @@ has 'schema';  # eg 'test';
 has 'user';
 has 'password';
 
-# Private function
-
-sub croak { require Carp; goto &Carp::croak; }
-
 # Public methods
 
 sub new {
@@ -102,6 +99,11 @@ sub new {
   # %param may contain defaults for overriding
   my %defaults = ref $proto ? ( %{ ref($proto)->Defaults }, %$proto )
                             : %{ $proto->Defaults };
+  if (ref $proto) {
+    %defaults = ( %{ ref($proto)->Defaults }, %$proto );
+    local $_;
+    delete $defaults{$_} for grep { /^dbh\./ } keys %defaults;
+  }
   return Mojo::Base::new($proto, %defaults, %param);
 }
 
@@ -119,6 +121,13 @@ sub connect {
         $proto->dsn_to_dump(@args), $e;
   };
   return $dbh;
+}
+
+sub connection {
+  my ($self, $tag) = @_; $tag //= 'connection';
+  return $self->{"dbh.$tag"}
+    if ($self->{"dbh.$tag"} //= $self->connect)->ping;
+  return $self->{"dbh.$tag"} = $self->connect;
 }
 
 sub dsn {
@@ -173,12 +182,9 @@ sub dsn_to_dump {
 package Mojar::Mysql::Connector::db;
 @Mojar::Mysql::Connector::db::ISA = 'DBI::db';
 
+use Carp 'croak';
 use Mojar::Util 'lc_keys';
 use Scalar::Util 'looks_like_number';
-
-# Private functions
-
-sub croak { require Carp; goto &Carp::croak; }
 
 our $_as_hash = { Slice => {} };
 sub as_hash { $_as_hash }
@@ -255,7 +261,7 @@ sub schemata {
     my $sql = q{SHOW DATABASES};
     $sql .= sprintf q{ LIKE '%s'}, $args[0] if defined $args[0];
     $schemata = $self->selectcol_arrayref($sql, $args[1]) or die;
-    @$schemata = grep !/^lost\+found/, @$schemata;
+    @$schemata = grep !/^(?:\#|lost\+found)/, @$schemata;
     1;
   }
   or do {
@@ -343,6 +349,24 @@ sub statistics {
 
   my $s = $self->selectall_arrayref(q{SHOW /*!50000 GLOBAL */ STATUS});
   return lc_keys { map @$_, @$s };
+}
+
+sub engine {
+  my ($self, $schema, $table) = @_;
+  my $engine;
+  if ($self->mysqld_version =~ /^(\d+)\./ and $1 >= 5) {
+    ($engine) = $self->selectrow_array(
+q{SELECT ENGINE
+FROM information_schema.TABLES
+WHERE
+  TABLE_SCHEMA = ?
+  AND TABLE_NAME = ?},
+      undef,
+      $schema,
+      $table
+    );
+  }
+  return $engine;
 }
 
 sub indices {
@@ -852,13 +876,13 @@ alternatives out there but I'm still surprised how little support there is for
 keeping passwords out of your codebase and helping you manage multiple
 connections.
 
-=head1 SEE ALSO
-
-L<Coro::Mysql>, L<AnyEvent::DBI>, L<DBIx::Custom>, L<DBIx::Connector>, L<DBI>.
-
 =head1 COPYRIGHT AND LICENCE
 
 Copyright (C) 2002--2014, Nic Sandfield.
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.
+
+=head1 SEE ALSO
+
+L<Coro::Mysql>, L<AnyEvent::DBI>, L<DBIx::Custom>, L<DBIx::Connector>, L<DBI>.
