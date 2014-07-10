@@ -24,7 +24,7 @@ WriteMakefile(
   CONFIGURE_REQUIRES => {'ExtUtils::MakeMaker' => '6.30'},
   PREREQ_PM => {
     Mojolicious => 3.33,
-    Mojar => 1.053,
+    Mojar => 2.013,
     DBI => 1.53,
     'DBD::mysql' => 3.0008
   },

@@ -1,3 +1,7 @@
+2.091 2014-07-10
+  * Added new package (Replication).
+  * Made names more consistent, s/process/thread/ (Connector,Replication).
+
 2.081 2014-07-06
   * Added connection (Connector).
 

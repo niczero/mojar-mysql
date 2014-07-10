@@ -1,7 +1,7 @@
 package Mojar::Mysql;
 use Mojo::Base -strict;
 
-our $VERSION = 2.081;
+our $VERSION = 2.092;
 
 1;
 __END__
@@ -12,5 +12,22 @@ Mojar::Mysql - Suite of MySQL integration tools.
 
 =head1 DESCRIPTION
 
-This release includes the database connector L<Mojar::Mysql::Connector>, and
-the utility pack L<Mojar::Mysql::Util>.
+=over 4
+
+=item L<Mojar::Mysql::Connector>
+
+Subclass of L<DBI> providing sensible defaults, easy management of parameters,
+richer connectors, connection cacheing, and additional methods.
+
+=item L<Mojar::Mysql::Replication>
+
+Class for monitoring and managing repliation threads.
+
+  $repl->start_sql;
+  say 'Lag: ', $repl->sql_lag;
+
+=item L<Mojar::Mysql::Util>
+
+Collection of utility functions.
+
+=back

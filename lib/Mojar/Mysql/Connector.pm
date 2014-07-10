@@ -5,7 +5,7 @@ use Mojo::Base 'DBI';
 # Register subclass structure
 __PACKAGE__->init_rootclass;
 
-our $VERSION = 2.121;
+our $VERSION = 2.131;
 
 use Carp 'croak';
 use File::Spec::Functions 'catfile';
@@ -318,7 +318,7 @@ sub selectall_arrayref_hashrefs {
   return $self->selectall_arrayref($sql, $opts, @args);
 }
 
-sub processes {
+sub threads {
   my $p = shift->selectall_arrayref_hashrefs(q{SHOW FULL PROCESSLIST});
   @$p = map lc_keys($_), @$p;
   return $p;

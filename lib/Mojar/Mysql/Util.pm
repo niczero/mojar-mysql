@@ -1,7 +1,7 @@
 package Mojar::Mysql::Util;
 use Mojo::Base -strict;
 
-our $VERSION = 0.001;
+our $VERSION = 0.002;
 
 require Carp;
 
@@ -279,7 +279,7 @@ point to using this.  It makes most sense with InnoDB or XtraDB tables when you
 want to find the first primary key value that satisfies a condition that can't
 be found using indices.  In this case the algorithm is searching the clustered
 (primary) index in a way that has maximum immunity to record locking.  So it's
-not just fast, it avoids contention with concurrent processes.
+not just fast, it avoids contention with concurrent threads.
 
 =head1 SEE ALSO
 
