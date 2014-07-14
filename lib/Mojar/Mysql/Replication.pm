@@ -1,10 +1,11 @@
 package Mojar::Mysql::Replication;
 use Mojo::Base -base;
 
-our $VERSION = 0.032;
+our $VERSION = 0.033;
 
 use Carp 'croak';
 use Mojar::Util qw(as_bool dumper lc_keys);
+use Mojar::Log;
 
 # Attributes
 
@@ -148,7 +149,7 @@ sub status {
   return $status;
 }
 
-sub stop_repl {
+sub stop {
   my ($self, $safety) = @_;
   $safety //= $self->safety;
 #TODO: Check whether has privs to see system_user threads
@@ -369,18 +370,49 @@ Mojar::Mysql::Replication - Monitor and control the replication threads
 =head1 SYNOPSIS
 
   use Mojar::Mysql::Replication;
-  my $repl = Mojar::Mysql::Replication->new;
-  say $repl->
+  my $repl = Mojar::Mysql::Replication->new(connector => ...);
+  say 'Lag: ', $repl->sql_lag;
 
 =head1 DESCRIPTION
 
+A class for monitoring and managing replication threads.
+
 =head1 USAGE
+
+First create a replication object (manager) that knows how to connect to the
+replicating database.
+
+  use Mojar::Mysql::Replication;
+  use Mojar::Mysql::Connector (
+    cnf => '...',
+    -connector => 1
+  );
+  my $repl = Mojar::Mysql::Replication->new(
+    connector => $self->connector,
+    log => $self->log
+  );
+
+Then you can monitor the status of its replication.
+
+  $connection_time = $repl->io_run_time;
+  $lag = $repl->sql_lag;
+  $required_binlog = $repl->status->{master_log_file};
+
+And you can manage replication.
+
+  $repl->safety('max_safety')->stop;
+  $repl->start_io->start_sql;
 
 =head1 RATIONALE
 
+Replication is most often used for scaling out for performance, protection from
+potentially interfering readers, and data security.  There are, however, very
+few tools to help monitor and manage replication, probably due to the fiddliness
+of the details.  At one site this package helps manage 100+ MySQL servers.
+
 =head1 COPYRIGHT AND LICENCE
 
-Copyright (C) 2002--2014, Nic Sandfield.
+Copyright (C) 2006--2014, Nic Sandfield.
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.
