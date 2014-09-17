@@ -1,7 +1,7 @@
 package Mojar::Mysql;
 use Mojo::Base -strict;
 
-our $VERSION = 2.101;
+our $VERSION = 2.102;
 
 1;
 __END__
@@ -17,7 +17,7 @@ Mojar::Mysql - Suite of MySQL integration tools.
 =item L<Mojar::Mysql::Connector>
 
 Subclass of L<DBI> providing sensible defaults, easy management of parameters,
-richer connectors, connection cacheing, and additional methods.
+richer connectors, connection cacheing, and convenience methods.
 
 =item L<Mojar::Mysql::Replication>
 

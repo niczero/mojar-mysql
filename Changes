@@ -1,7 +1,8 @@
-2.101 2014-07-14
+2.102 2014-09-17
   * Fixed use bug (Replication).
   * Added documentation (Replication).
   * Added basic tests (Replication).
+  * Updated travis config.
 
 2.091 2014-07-10
   * Added new package (Replication).
@@ -11,13 +12,9 @@
   * Added connection (Connector).
 
 2.073 2014-07-02
-  * Fixed documentation (Connector).
-
-2.072 2014-03-13
-  * Added documentation (Util).
-
-2.071 2014-03-10
   * Added find_monotonic_first (Util).
+  * Added documentation (Util).
+  * Fixed documentation (Connector).
 
 2.063 2014-02-11
   * Renamed selectall_hashref -> selectall_arrayref_hashrefs (Connector).
@@ -30,29 +27,21 @@
   * Changed implementation of Defaults to use singleton object (Connector).
 
 2.042 2014-02-03
-  * Fixed name of dsn_to_dump (Connector).
-
-2.041 2014-01-28
   * Removed :sql_types (Connector).
   * Improved documentation (showed usage of helpers).
   * Improved documentation (tried to make more readable).
   * Fixed Makefile.PL.
+  * Fixed name of dsn_to_dump (Connector).
 
 2.034 2013-01-01
-  * Tweaked travis env.
-  * Reinstated missing licence file.
-
-2.033 2013-01-01
-  * Tweaked meta files.
-  * Fixed POD bug (Connector).
-  * Improved documentation (Connector).
-
-2.032 2012-12-31
-  * Modified dsn to support omitting schema name (Connector).
-
-2.031 2012-12-31
   * Major overhaul and rename (Connector).
   * Added documentation (Connector).
   * Revised some defaults (Connector).
   * Improved documentation (Connector).
   * Added travis support.
+  * Modified dsn to support omitting schema name (Connector).
+  * Tweaked meta files.
+  * Fixed POD bug (Connector).
+  * Improved documentation (Connector).
+  * Tweaked travis env.
+  * Reinstated missing licence file.

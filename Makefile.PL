@@ -21,10 +21,10 @@ WriteMakefile(
     no_index => {directory => [qw(data test)]}
   },
   BUILD_REQUIRES => {'Test::More' => 0},
-  CONFIGURE_REQUIRES => {'ExtUtils::MakeMaker' => '6.30'},
+  CONFIGURE_REQUIRES => {'ExtUtils::MakeMaker' => 6.3},
   PREREQ_PM => {
     Mojolicious => 3.33,
-    Mojar => 2.013,
+    Mojar => 2.02,
     DBI => 1.53,
     'DBD::mysql' => 3.0008
   },
