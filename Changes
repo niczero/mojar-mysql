@@ -1,3 +1,6 @@
+2.111 2014-11-27
+  * Accept all DBD::mysql ("mysql_") options (Connector).
+
 2.102 2014-09-17
   * Fixed use bug (Replication).
   * Added documentation (Replication).

@@ -13,7 +13,7 @@ WriteMakefile(
   META_MERGE   => {
     requires  => {perl => 5.010001},
     resources => {
-      homepage    => 'http://niczero.github.com/mojar-mysql',
+      homepage    => 'http://niczero.github.com/mojar',
       license     => 'http://www.opensource.org/licenses/artistic-license-2.0',
       repository  => 'http://github.com/niczero/mojar-mysql',
       bugtracker  => 'http://github.com/niczero/mojar-mysql/issues'

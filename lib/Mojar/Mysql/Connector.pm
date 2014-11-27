@@ -5,7 +5,7 @@ use Mojo::Base 'DBI';
 # Register subclass structure
 __PACKAGE__->init_rootclass;
 
-our $VERSION = 2.131;
+our $VERSION = 2.142;
 
 use Carp 'croak';
 use File::Spec::Functions 'catfile';
@@ -64,25 +64,25 @@ have Defaults => sub { bless {} => ref $_[0] || $_[0] };
 
 # Attributes
 
-my @DbdFields = qw( RaiseError PrintError PrintWarn AutoCommit TraceLevel
-    mysql_enable_utf8 mysql_auto_reconnect );
+my @DbdFields = qw(RaiseError PrintError PrintWarn AutoCommit TraceLevel
+    mysql_auto_reconnect mysql_enable_utf8);
 
 has RaiseError => 1;
 has PrintError => 0;
 has PrintWarn => 0;
 has AutoCommit => 1;
 has TraceLevel => 0;
-has mysql_enable_utf8 => 1;
 has mysql_auto_reconnect => 0;
+has mysql_enable_utf8 => 1;
 
-my @ConFields = qw( label cnfdir cnf cnfgroup );
+my @ConFields = qw(label cnfdir cnf cnfgroup);
 
 has 'label';
 has cnfdir => '.';
 has 'cnf';
 has 'cnfgroup';
 
-my @DbiFields = qw( driver host port schema user password );
+my @DbiFields = qw(driver host port schema user password);
 
 has driver => 'mysql';
 has 'host';  # eg 'localhost'
@@ -98,12 +98,8 @@ sub new {
   # $proto may contain defaults to be cloned
   # %param may contain defaults for overriding
   my %defaults = ref $proto ? ( %{ ref($proto)->Defaults }, %$proto )
-                            : %{ $proto->Defaults };
-  if (ref $proto) {
-    %defaults = ( %{ ref($proto)->Defaults }, %$proto );
-    local $_;
-    delete $defaults{$_} for grep { /^dbh\./ } keys %defaults;
-  }
+                            : %{$proto->Defaults};
+  delete $defaults{$_} for grep { ref $proto and /^dbh\./ } keys %defaults;
   return Mojo::Base::new($proto, %defaults, %param);
 }
 
@@ -112,21 +108,17 @@ sub connect {
   my $class = ref $proto || $proto;
   @args = $proto->dsn(@args) unless @args and $args[0] =~ /^DBI:/i;
   my $dbh;
-  eval {
-    $dbh = $class->SUPER::connect(@args)
-  }
+  eval { $dbh = $class->SUPER::connect(@args) }
   or do {
     my $e = $@;
-    croak sprintf "Connection error\n%s\n%s",
-        $proto->dsn_to_dump(@args), $e;
+    croak sprintf "Connection error\n%s\n%s", $proto->dsn_to_dump(@args), $e;
   };
   return $dbh;
 }
 
 sub connection {
   my ($self, $tag) = @_; $tag //= 'connection';
-  return $self->{"dbh.$tag"}
-    if ($self->{"dbh.$tag"} //= $self->connect)->ping;
+  return $self->{"dbh.$tag"} if ($self->{"dbh.$tag"} //= $self->connect)->ping;
   return $self->{"dbh.$tag"} = $self->connect;
 }
 
@@ -151,6 +143,7 @@ sub dsn {
   my %custom;
   defined($param->$_) and $custom{$_} = $param->$_ for qw(label cnf cnfgroup);
   my $dbd_param = %custom ? { private_config => {%custom} } : {};
+  $dbd_param->{$_} = $param->{$_} for grep /^mysql_/, keys %$param;
   @$dbd_param{@DbdFields} = map $param->$_, @DbdFields;
 
   return (
@@ -237,20 +230,20 @@ sub global_var {
   return $variables;
 }
 
-sub disable_quotes { shift->session_var( sql_quote_show_create => 0 ) }
+sub disable_quotes { shift->session_var(sql_quote_show_create => 0) }
 
 sub enable_quotes {
   my ($self, $value) = @_;
   $value //= 1;
-  $self->session_var( sql_quote_show_create => $value )
+  $self->session_var(sql_quote_show_create => $value)
 }
 
-sub disable_fk_checks { shift->session_var( foreign_key_checks => 0 ) }
+sub disable_fk_checks { shift->session_var(foreign_key_checks => 0) }
 
 sub enable_fk_checks {
   my ($self, $value) = @_;
   $value //= 1;
-  $self->session_var( foreign_key_checks => $value )
+  $self->session_var(foreign_key_checks => $value)
 }
 
 sub schemata {
@@ -724,7 +717,34 @@ All connector parameters are implemented as attributes with exactly the same
 spelling.  So for example you can
 
   $connector->RaiseError(undef);  # disable RaiseError
-  $connector->mysql_enable_utf8(1);  # enable mysql_enable_utf8
+  $connector->mysql_enable_utf8(0);  # disable mysql_enable_utf8
+
+The attributes, with their coded defaults, are
+
+  RaiseError => 1
+  PrintError => 0
+  PrintWarn => 0
+  AutoCommit => 1
+  TraceLevel => 0
+  mysql_auto_reconnect => 0
+  mysql_enable_utf8 => 1
+
+  label
+  cnfdir => '.'
+  cnf
+  cnfgroup
+
+  driver => 'mysql'
+  host
+  port
+  schema
+  user
+  password
+
+In addition, any L<DBD::mysql> attributes (beginning "mysql_") are passed
+through to the driver.
+
+  $dbh = $connector->connect(mysql_skip_secure_auth => 1);
 
 =head1 DATABASE HANDLE METHODS
 
@@ -848,6 +868,38 @@ Returns a arrayref of view names, similar to
   SHOW TABLES
 
 but excluding real tables.
+
+=head1 CHARACTER ENCODINGS
+
+To read/store characters encoded as non-ASCII, non-UTF8, you must disable
+handling of UTF-8.
+
+  $connector = Mojar::Mysql::Connector->new(mysql_enable_utf8 => 0);
+
+This is essential, for example, when fetching high-latin (eg non-ASCII 8859-1)
+characters.
+
+=head1 DEBUGGING
+
+You can enable DBI trace logging at use-time:
+
+  use Mojar::Mysql::Connector (TraceLevel => '3|CON');
+
+and since you have access to all of L<DBI>, you can set tracing using the method
+
+  $dbh->trace('3|CON');
+  ...
+  $dbh->trace(0);
+
+or by using the attribute
+
+  {
+    local $dbh->{TraceLevel} = '3|CON';
+    ...
+  }
+
+To set tracing for all handles, use the class method instead.  See
+L<DBI/TRACING>.
 
 =head1 SUPPORT
 
