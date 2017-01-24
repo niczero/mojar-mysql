@@ -5,7 +5,7 @@ use Mojo::Base 'DBI';
 # Register subclass structure
 __PACKAGE__->init_rootclass;
 
-our $VERSION = 2.142;
+our $VERSION = 2.151;
 
 use Carp 'croak';
 use File::Spec::Functions 'catfile';
@@ -216,7 +216,7 @@ sub session_var { shift->_var('SESSION', @_) }
 
 sub global_var {
   my $self = shift;
-  return $self->_var('GLOBAL', @_)
+  return $self->_var(GLOBAL => @_)
     if @_ >= 2 or @_ == 1 and $_[0] ne 'have_innodb';
 
   my $variables = $self->_var('GLOBAL');
@@ -390,30 +390,34 @@ q{SHOW TABLE STATUS FROM %s}, $schema;
 sub engine_status {
   my ($self, $engine) = @_;
   $engine //= 'InnoDB';
+  Carp::croak "Bad engine ($engine)" unless $engine =~ /^\w+$/;
 
-  my ($raw) = $self->selectrow_array(
-q{SHOW INNODB STATUS}
-  );
+  my $raw = ($self->selectrow_array(
+      qq{SHOW /*!50500 ENGINE */ $engine STATUS}))[2];
+  $raw =~ s/\t/ /g;
 
-  my ($title, $buffer) = ('', '');
-  my $status = {};
-  for (split /^/, $raw) {
-    if (/^\-+$/ and length $buffer) {
+  my ($title, $buffer, $status) = ('', '', {});
+  while ($raw =~ /^(.*)$/mg) {
+    my $line = $1;
+    if ($line =~ /^-+$/ and length $buffer) {
       # Finish previous record
       $status->{$title} = $buffer;
       $title = $buffer = '';
     }
-    elsif (/^-+$/) {
+    elsif ($line =~ /^-+$/) {
       # Start new record
     }
     elsif (not length $title) {
-      chomp;
-      $title = lc $_;
-      $title =~ s/\s/_/g;
+      chomp $line;
+      $title = lc $line;
+      $title =~ s/\s+/_/g;
       $title =~ s/\W//g;
     }
+    elsif ($line =~ /^=+$/) {
+      next;
+    }
     else {
-      $buffer .= $_;
+      $buffer .= $line . $/;
     }
     # Ignore final record
   }
@@ -451,6 +455,46 @@ q{SELECT DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL %s DAY), '%s')},
     $days, $format
   );
   return $date;
+}
+
+sub quiesce {
+  my ($self) = @_;
+
+  # Record existing state
+  my $pct = $self->global_var('innodb_max_dirty_pages_pct')
+    // die "Failed to get dirty_pages info\n";
+  my $repl = $self->selectrow_hashref('SHOW SLAVE STATUS') // {};
+  Carp::croak "Cannot quiesce while replicating"
+    if ($repl->{Slave_SQL_Running} // '') =~ /^Yes/i;
+
+  # Prepare callback to un-quiesce db
+  my $cb = sub {
+    eval { $self->do('UNLOCK TABLES') };
+    $self->global_var(innodb_max_dirty_pages_pct => shift // $pct);
+  };
+
+  # Quiesce
+  eval {
+    $self->global_var(innodb_max_dirty_pages_pct => 0);
+    $self->do('FLUSH TABLES WITH READ LOCK');
+    my ($quiesced, $count) = (0, 0);
+    while (++$count < 120) {
+      my $state = $self->engine_status('InnoDB')->{buffer_pool_and_memory};
+      if ($state =~ /^Modified db pages\s+(\d+)$/m) {
+        ++$quiesced, last if $1 == 0;
+      }
+      else {
+        die "Failed to check dirty pages\n";
+      }
+      sleep 1;
+    }
+    $quiesced;
+  } or do {
+    my $e = $@ // '';
+    eval { $cb->(); };
+    die "Failed to quiesce database: $e\n";
+  };
+  return $cb;
 }
 
 # Private method

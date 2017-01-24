@@ -1,3 +1,8 @@
+2.121 2017-01-24
+  * Added quiesce (Connector).
+  * Fixed error message (Replication).
+  * Made FindRangeSize overwritable (Util).
+
 2.111 2014-11-27
   * Accept all DBD::mysql ("mysql_") options (Connector).
 

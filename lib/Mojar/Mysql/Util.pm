@@ -1,7 +1,7 @@
 package Mojar::Mysql::Util;
 use Mojo::Base -strict;
 
-our $VERSION = 0.002;
+our $VERSION = 0.011;
 
 require Carp;
 
@@ -17,7 +17,7 @@ sub import {
   *{"${caller}::lookup"} = sub { lookup($caller, @_) } if $want{lookup};
 }
 
-my $FindRangeSize = 200;
+our $FindRangeSize = 200;
 
 sub find_monotonic_first {
   my ($dbh, $schema, $table, $column, $condition) = @_;

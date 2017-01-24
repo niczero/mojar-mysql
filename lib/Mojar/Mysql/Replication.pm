@@ -1,7 +1,7 @@
 package Mojar::Mysql::Replication;
 use Mojo::Base -base;
 
-our $VERSION = 0.033;
+our $VERSION = 0.034;
 
 use Carp 'croak';
 use Mojar::Util qw(as_bool dumper lc_keys);
@@ -77,7 +77,7 @@ sub stop_sql {
     }
     else {
       $self->log->error("stop_sql: $e") if $self->log;
-      croak "Failed to stop io_thread: $e";
+      croak "Failed to stop sql_thread: $e";
     }
   };
   return $self;
