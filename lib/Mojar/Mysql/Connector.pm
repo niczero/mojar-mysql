@@ -5,7 +5,7 @@ use Mojo::Base 'DBI';
 # Register subclass structure
 __PACKAGE__->init_rootclass;
 
-our $VERSION = 2.151;
+our $VERSION = 2.161;
 
 use Carp 'croak';
 use File::Spec::Functions 'catfile';
@@ -63,6 +63,8 @@ sub import {
 have Defaults => sub { bless {} => ref $_[0] || $_[0] };
 
 # Attributes
+
+has quiesce_timeout => 500;
 
 my @DbdFields = qw(RaiseError PrintError PrintWarn AutoCommit TraceLevel
     mysql_auto_reconnect mysql_enable_utf8);
@@ -311,6 +313,13 @@ sub selectall_arrayref_hashrefs {
   return $self->selectall_arrayref($sql, $opts, @args);
 }
 
+sub selectall_lookup {
+  my $self = shift;
+  my $rs = $self->selectall_arrayref(@_);  # ($sql, $opts, @args)
+  return undef if @$rs >= 1 and @{$$rs[0]} != 2;  # wrong qty cols
+  return {map @$_, @$rs};  # flatten
+}
+
 sub threads {
   my $p = shift->selectall_arrayref_hashrefs(q{SHOW FULL PROCESSLIST});
   @$p = map lc_keys($_), @$p;
@@ -392,8 +401,11 @@ sub engine_status {
   $engine //= 'InnoDB';
   Carp::croak "Bad engine ($engine)" unless $engine =~ /^\w+$/;
 
+  my ($major, $minor) = ($self->mysqld_version =~ /^(\d+)\.(\d+)\./);
+  my $i = $major > 5 ? 2 : $major == 5 && $minor >= 1 ? 2 : 0;
   my $raw = ($self->selectrow_array(
-      qq{SHOW /*!50500 ENGINE */ $engine STATUS}))[2];
+      qq{SHOW /*!50500 ENGINE */ $engine STATUS}))[$i]
+      // die "Failed to get engine ($engine) status\n";
   $raw =~ s/\t/ /g;
 
   my ($title, $buffer, $status) = ('', '', {});
@@ -478,7 +490,7 @@ sub quiesce {
     $self->global_var(innodb_max_dirty_pages_pct => 0);
     $self->do('FLUSH TABLES WITH READ LOCK');
     my ($quiesced, $count) = (0, 0);
-    while (++$count < 120) {
+    while (++$count < $self->quiesce_timeout) {
       my $state = $self->engine_status('InnoDB')->{buffer_pool_and_memory};
       if ($state =~ /^Modified db pages\s+(\d+)$/m) {
         ++$quiesced, last if $1 == 0;
@@ -974,11 +986,17 @@ connections.
 
 =head1 COPYRIGHT AND LICENCE
 
-Copyright (C) 2002--2014, Nic Sandfield.
+Copyright (C) 2002--2017, Nic Sandfield.
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.
 
 =head1 SEE ALSO
 
-L<Coro::Mysql>, L<AnyEvent::DBI>, L<DBIx::Custom>, L<DBIx::Connector>, L<DBI>.
+L<Mojo::mysql>, L<Coro::Mysql>, L<AnyEvent::DBI>, L<DBIx::Custom>,
+L<DBIx::Connector>, L<DBI>.
+
+=cut
+
+# engine_status and quiesce have been tested on 4.0.27, 4.1.11, 5.0.87, 5.1.73,
+# 5.6.23, 5.7.16
