@@ -3,6 +3,7 @@
 .session
 blib/
 dep/
+log/
 Makefile
 MYMETA.*
 nytprof.out

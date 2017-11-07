@@ -1,4 +1,8 @@
-2.131 2017-05-04
+2.141 2017-05-14
+  - Upgrade for Mojolicious v7.15.
+  - Now requires Perl v5.14.
+
+2.132 2017-05-04
   - Add selectall_lookup (Connector).
   - Make small improvements to quiesce (Connector).
   - Make engine_status work on more versions (Connector).
